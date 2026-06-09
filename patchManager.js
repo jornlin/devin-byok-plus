@@ -112,15 +112,25 @@ class PatchManager {
   static escapeRegExp(_0x2c9276) {
     return _0x2c9276.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  static isPatched(_0x19bb45, _0x5aa773, _0x29ca09 = "http://localhost:3006", _0x37dd48 = "http://localhost:3001") {
+  static loopbackApiUrl(_0xport) {
+    return "http://127.0.0.1:" + _0xport;
+  }
+  static patchUrlCandidates(_0xurl) {
+    const _0xm = String(_0xurl || "").match(/^https?:\/\/[^/:]+:(\d+)$/);
+    if (!_0xm) {
+      return [_0xurl];
+    }
+    return [PatchManager.loopbackApiUrl(_0xm[1]), "http://localhost:" + _0xm[1]];
+  }
+  static isPatched(_0x19bb45, _0x5aa773, _0x29ca09 = "http://127.0.0.1:3006", _0x37dd48 = "http://127.0.0.1:3001") {
     if (_0x5aa773.name.startsWith("P1:")) {
-      return new RegExp("\\.getApiServerUrlFromContext=[A-Za-z_$][\\w$]*=>\\{return\"" + PatchManager.escapeRegExp(_0x29ca09) + "\"\\}", "m").test(_0x19bb45);
+      return PatchManager.patchUrlCandidates(_0x29ca09).some(_0xurl => new RegExp("\\.getApiServerUrlFromContext=[A-Za-z_$][\\w$]*=>\\{return\"" + PatchManager.escapeRegExp(_0xurl) + "\"\\}", "m").test(_0x19bb45));
     }
     if (_0x5aa773.name.startsWith("P2:")) {
-      return new RegExp("async restart\\([A-Za-z_$][\\w$]*\\)\\{[A-Za-z_$][\\w$]*=\"" + PatchManager.escapeRegExp(_0x29ca09) + "\",this\\.apiServerUrl=", "m").test(_0x19bb45);
+      return PatchManager.patchUrlCandidates(_0x29ca09).some(_0xurl => new RegExp("async restart\\([A-Za-z_$][\\w$]*\\)\\{[A-Za-z_$][\\w$]*=\"" + PatchManager.escapeRegExp(_0xurl) + "\",this\\.apiServerUrl=", "m").test(_0x19bb45));
     }
     if (_0x5aa773.name.startsWith("P3:")) {
-      return new RegExp("const\\s+[A-Za-z_$][\\w$]*=\"" + PatchManager.escapeRegExp(_0x37dd48) + "\"", "m").test(_0x19bb45);
+      return PatchManager.patchUrlCandidates(_0x37dd48).some(_0xurl => new RegExp("const\\s+[A-Za-z_$][\\w$]*=\"" + PatchManager.escapeRegExp(_0xurl) + "\"", "m").test(_0x19bb45));
     }
     return _0x19bb45.includes(_0x5aa773.patched) || _0x5aa773.patchedRegex.test(_0x19bb45);
   }
@@ -132,7 +142,7 @@ class PatchManager {
       const _0x1b71a8 = "$1.getApiServerUrlFromContext=$2=>{return\"" + _0xfe0b1b + "\"}";
       let _0x10cfa8 = _0xc1d651.replace(_0x1f1f11.originalRegex, _0x1b71a8);
       if (_0x10cfa8 === _0xc1d651) {
-        _0x10cfa8 = _0xc1d651.replace(/([A-Za-z_$][\w$]*)\.getApiServerUrlFromContext=([A-Za-z_$][\w$]*)=>\{return"https?:\/\/localhost:\d+"\}/m, _0x1b71a8);
+        _0x10cfa8 = _0xc1d651.replace(/([A-Za-z_$][\w$]*)\.getApiServerUrlFromContext=([A-Za-z_$][\w$]*)=>\{return"https?:\/\/(?:127\.0\.0\.1|localhost):\d+"\}/m, _0x1b71a8);
       }
       return {
         content: _0x10cfa8,
@@ -142,7 +152,7 @@ class PatchManager {
     if (_0x1f1f11.name.startsWith("P2:")) {
       let _0x3102a2 = _0xc1d651.replace(_0x1f1f11.originalRegex, "async restart($1){$1=\"" + _0xfe0b1b + "\",this.apiServerUrl=$1,this.inputs.apiServerUrl=$1,");
       if (_0x3102a2 === _0xc1d651) {
-        _0x3102a2 = _0xc1d651.replace(/async restart\(([A-Za-z_$][\w$]*)\)\{([A-Za-z_$][\w$]*)="https?:\/\/localhost:\d+",this\.apiServerUrl=\2,this\.inputs\.apiServerUrl=\2,/m, "async restart($1){$2=\"" + _0xfe0b1b + "\",this.apiServerUrl=$2,this.inputs.apiServerUrl=$2,");
+        _0x3102a2 = _0xc1d651.replace(/async restart\(([A-Za-z_$][\w$]*)\)\{([A-Za-z_$][\w$]*)="https?:\/\/(?:127\.0\.0\.1|localhost):\d+",this\.apiServerUrl=\2,this\.inputs\.apiServerUrl=\2,/m, "async restart($1){$2=\"" + _0xfe0b1b + "\",this.apiServerUrl=$2,this.inputs.apiServerUrl=$2,");
       }
       return {
         content: _0x3102a2,
@@ -153,7 +163,7 @@ class PatchManager {
       const _0x175196 = "const $1=\"" + _0x54c2b3 + "\"";
       let _0x557ef6 = _0xc1d651.replace(_0x1f1f11.originalRegex, _0x175196);
       if (_0x557ef6 === _0xc1d651) {
-        _0x557ef6 = _0xc1d651.replace(/const ([A-Za-z_$][\w$]*)="https?:\/\/localhost:\d+"/m, _0x175196);
+        _0x557ef6 = _0xc1d651.replace(/const ([A-Za-z_$][\w$]*)="https?:\/\/(?:127\.0\.0\.1|localhost):\d+"/m, _0x175196);
       }
       return {
         content: _0x557ef6,
@@ -372,7 +382,7 @@ class PatchManager {
     }
     return _0x2cfa11.find(_0x4f9091 => fs.existsSync(_0x4f9091)) || null;
   }
-  static getStatus(_0x1d7de1, _0x1838da = "http://localhost:3006", _0x47fb14 = "http://localhost:3001") {
+  static getStatus(_0x1d7de1, _0x1838da = "http://127.0.0.1:3006", _0x47fb14 = "http://127.0.0.1:3001") {
     const _0x20c3d0 = PatchManager.resolveExtensionJsPath(_0x1d7de1);
     if (!_0x20c3d0) {
       return {
@@ -423,7 +433,7 @@ class PatchManager {
         _0x53574d.push("[缺失] " + _0x185c45.name + " (当前版本不包含此模式)");
         continue;
       }
-      const _0x2ddae0 = PatchManager.applyPatchContent(_0x301c50, _0x185c45, "http://localhost:3006", "http://localhost:3001");
+      const _0x2ddae0 = PatchManager.applyPatchContent(_0x301c50, _0x185c45, "http://127.0.0.1:3006", "http://127.0.0.1:3001");
       if (!_0x2ddae0.changed) {
         _0x4215c5++;
         _0x53574d.push("[失败] " + _0x185c45.name + " (匹配到但替换未生效)");

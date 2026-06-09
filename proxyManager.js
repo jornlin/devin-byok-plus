@@ -80,11 +80,11 @@ class ProxyManager {
   getInferencePort(_0x4a52e1) {
     return this.parsePort(_0x4a52e1?.INFERENCE_PORT, 3001);
   }
-  async ensureDevin DesktopHttpProxySettings(_0x1f217e) {
-    await this.restoreDevin DesktopHttpProxySettings();
-    this.log("已跳过全局 http.proxy 同步；Devin Desktop API 请求仅通过补丁指向 http://localhost:" + _0x1f217e);
+  async ensureDevinDesktopHttpProxySettings(_0x1f217e) {
+    await this.restoreDevinDesktopHttpProxySettings();
+    this.log("已跳过全局 http.proxy 同步；Devin Desktop API 请求仅通过补丁指向 http://127.0.0.1:" + _0x1f217e);
   }
-  async restoreDevin DesktopHttpProxySettings() {
+  async restoreDevinDesktopHttpProxySettings() {
     const _0x34e78b = this.context.globalState.get(KEY_HTTP_PROXY_BACKUP);
     if (!_0x34e78b) {
       return;
@@ -832,7 +832,7 @@ class ProxyManager {
           this.log("共享代理配置同步失败: " + _0x2ae5cb.errors.join("; "));
         }
         this.updateStatusBar();
-        await this.ensureDevin DesktopHttpProxySettings(_0x1888fa);
+        await this.ensureDevinDesktopHttpProxySettings(_0x1888fa);
         return true;
       }
       const _0x420ff4 = this.getPortOccupantDetail(_0x1888fa);
@@ -859,7 +859,7 @@ class ProxyManager {
     this.hybridProcess.stdout?.on("data", _0x595e34 => {
       const _0x4b5706 = _0x595e34.toString().trim();
       if (_0x4b5706) {
-        if (_0x4b5706.includes("⚡ Devin BYOK Bridge hybrid on http://localhost:" + _0x1888fa)) {
+        if (_0x4b5706.includes("⚡ Devin BYOK Bridge hybrid on http://127.0.0.1:" + _0x1888fa) || _0x4b5706.includes("⚡ Devin BYOK Bridge hybrid on http://localhost:" + _0x1888fa)) {
           _0x10a9aa = true;
         }
         if (/⚡\s*(MITM\s+)?GetChatMessage\b/.test(_0x4b5706) || _0x4b5706.includes("GetStreamingCompletions") || _0x4b5706.includes("GetWebSearchResults") || _0x4b5706.includes("GetEmbeddings")) {
@@ -913,7 +913,7 @@ class ProxyManager {
       this.log("提示: 非默认端口；侧栏「保存配置」会按端口同步 Devin Desktop 补丁，修改后请重启 IDE。");
     }
     this.updateStatusBar();
-    await this.ensureDevin DesktopHttpProxySettings(_0x1888fa);
+    await this.ensureDevinDesktopHttpProxySettings(_0x1888fa);
     if (_0xf81a6c === "both") {
       const _0x51b450 = path.join(this.proxyRoot, "src", "inference-proxy.js");
       if (!fs.existsSync(_0x51b450)) {
@@ -954,7 +954,7 @@ class ProxyManager {
         const _0x5f6a7a = this.inferenceProcess;
         this.inferenceProcess.stdout?.on("data", _0x24a35a => {
           const _0x569eaa = _0x24a35a.toString().trim();
-          if (_0x569eaa.includes("⚡ Devin BYOK Bridge inference on http://localhost:" + _0xf9c6d3)) {
+          if (_0x569eaa.includes("⚡ Devin BYOK Bridge inference on http://127.0.0.1:" + _0xf9c6d3) || _0x569eaa.includes("⚡ Devin BYOK Bridge inference on http://localhost:" + _0xf9c6d3)) {
             _0x2dcf98 = true;
           }
           if (_0x569eaa) {
@@ -1007,7 +1007,7 @@ class ProxyManager {
       this.killListeningPort(_0x1e5435, "hybrid-server");
       this.killListeningPort(_0x24d85d, "inference-proxy");
       this.log("已停止共享代理");
-      this.restoreDevin DesktopHttpProxySettings();
+      this.restoreDevinDesktopHttpProxySettings();
       this.updateStatusBar();
       setTimeout(() => {
         this.autoRestart = true;
@@ -1020,7 +1020,7 @@ class ProxyManager {
       this.killProcessTree(_0xd70222, "hybrid-server");
       this.hybridProcess = null;
       this.activeHybridPort = undefined;
-      this.restoreDevin DesktopHttpProxySettings();
+      this.restoreDevinDesktopHttpProxySettings();
     }
     if (this.inferenceProcess) {
       const _0x159669 = this.inferenceProcess.pid;

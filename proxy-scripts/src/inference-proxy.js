@@ -3,6 +3,7 @@ import _0x5d1b1d from "node:https";
 import { handleGetChatMessage } from "./handlers/chat.js";
 import { handleGetCompletions } from "./handlers/completions.js";
 import { getProviderConfig, getRuntimeConfig, setRuntimeConfig } from "./handlers/models.js";
+import { getLoopbackListenHosts, loopbackApiUrl } from "./net-utils.js";
 function parsePortEnv(_0x31579a, _0x304fc2) {
   const _0x315d6c = process.env[_0x31579a];
   const _0x55f16c = parseInt(String(_0x315d6c ?? ""), 10);
@@ -259,7 +260,8 @@ function adaptStreamForHandler(_0x4fd9b3, _0x4ebf18, _0x29c9d3, _0x15fd31) {
   }
 }
 const server = _0x1fee6b.createServer();
-server.on("stream", (_0x423917, _0x22665d) => {
+function attachInferenceStreamHandler(_0xsrv) {
+  _0xsrv.on("stream", (_0x423917, _0x22665d) => {
   const _0x5c4e20 = ++reqCount;
   const _0x250004 = _0x22665d[":method"] || "GET";
   const _0xb18fb2 = _0x22665d[":path"] || "/";
@@ -311,19 +313,34 @@ server.on("stream", (_0x423917, _0x22665d) => {
     }
     console.error("[" + now() + "] #" + _0x5c4e20 + " stream error: " + _0x2fbb51.message);
   });
-});
-server.on("error", _0x514df6 => {
+  });
+}
+attachInferenceStreamHandler(server);
+function onInferenceError(_0x514df6) {
   if (_0x514df6.code === "EADDRINUSE") {
     console.error("Port " + PORT + " in use. Kill existing: lsof -ti:" + PORT + " | xargs kill");
   } else {
     console.error("Server error:", _0x514df6);
   }
   process.exit(1);
-});
-server.listen(PORT, BIND_HOST, () => {
-  console.log("\n⚡ Devin BYOK Bridge inference on http://localhost:" + PORT);
-  console.log("   Bind host: " + BIND_HOST);
+}
+function printInferenceReady() {
+  const _0xbindHosts = getLoopbackListenHosts(BIND_HOST);
+  console.log("\n⚡ Devin BYOK Bridge inference on " + loopbackApiUrl(PORT));
+  console.log("   Bind hosts: " + _0xbindHosts.join(", "));
   console.log("\n   GetChatMessage  → Anthropic API (inline AI edit)");
   console.log("   GetCompletions → Anthropic API (code completion)");
   console.log("   Everything else         → " + UPSTREAM + "\n");
-});
+}
+const _0xbindHosts = getLoopbackListenHosts(BIND_HOST);
+if (_0xbindHosts.length === 1) {
+  server.listen(PORT, _0xbindHosts[0], printInferenceReady);
+  server.on("error", onInferenceError);
+} else {
+  server.listen(PORT, _0xbindHosts[0], () => {});
+  server.on("error", onInferenceError);
+  const serverV6 = _0x1fee6b.createServer();
+  attachInferenceStreamHandler(serverV6);
+  serverV6.listen(PORT, _0xbindHosts[1], printInferenceReady);
+  serverV6.on("error", onInferenceError);
+}

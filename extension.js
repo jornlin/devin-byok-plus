@@ -40,8 +40,8 @@ function activate(context) {
     vscode.commands.registerCommand('devin-byok-bridge.applyPatch', async () => {
       const status = proxyManager.getStatus();
       const result = PatchManager.applyWithCustomUrls(
-        'http://localhost:' + status.hybridPort,
-        'http://localhost:' + status.inferencePort
+        PatchManager.loopbackApiUrl(status.hybridPort),
+        PatchManager.loopbackApiUrl(status.inferencePort)
       );
       if (result.applied > 0) {
         vscode.window.showInformationMessage('已应用 ' + result.applied + ' 个补丁，需重启 Devin Desktop', '重启 Devin').then(choice => {

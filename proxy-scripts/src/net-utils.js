@@ -24,3 +24,43 @@ export function isLocalTarget(_0x591d92) {
   const _0x237cae = parseHost(_0x1ad909);
   return _0x237cae.port !== 443 && _0x237cae.port !== 80 && /:\d+$/.test(_0x1ad909);
 }
+export function getLoopbackListenHosts(_0xbindHost) {
+  const _0xhost = String(_0xbindHost ?? process.env.BIND_HOST ?? "127.0.0.1").trim();
+  if (_0xhost && _0xhost !== "127.0.0.1") {
+    return [_0xhost];
+  }
+  return ["127.0.0.1", "::1"];
+}
+export function listenHttpOnLoopback(_0xcreateServer, _0xport, _0xbindHost, _0xonReady, _0xonError) {
+  const _0xhosts = getLoopbackListenHosts(_0xbindHost);
+  if (_0xhosts.length === 1) {
+    const _0xserver = _0xcreateServer(true);
+    _0xserver.listen(_0xport, _0xhosts[0], _0xonReady);
+    if (_0xonError) {
+      _0xserver.on("error", _0xonError);
+    }
+    return _0xserver;
+  }
+  let _0xpending = _0xhosts.length;
+  let _0xprimary = null;
+  const _0xdone = () => {
+    _0xpending -= 1;
+    if (_0xpending === 0 && _0xonReady) {
+      _0xonReady();
+    }
+  };
+  for (let _0xi = 0; _0xi < _0xhosts.length; _0xi++) {
+    const _0xserver = _0xcreateServer(_0xi === 0);
+    if (_0xi === 0) {
+      _0xprimary = _0xserver;
+    }
+    if (_0xonError) {
+      _0xserver.on("error", _0xonError);
+    }
+    _0xserver.listen(_0xport, _0xhosts[_0xi], _0xdone);
+  }
+  return _0xprimary;
+}
+export function loopbackApiUrl(_0xport) {
+  return "http://127.0.0.1:" + _0xport;
+}

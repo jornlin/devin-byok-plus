@@ -852,7 +852,7 @@ class SidebarProvider {
   }
   getPatchStatus() {
     const _0x10973f = this.proxyManager.getStatus();
-    return patchManager_1.PatchManager.getStatus(this.getStoredPatchExtensionPath(), "http://localhost:" + _0x10973f.hybridPort, "http://localhost:" + _0x10973f.inferencePort);
+    return patchManager_1.PatchManager.getStatus(this.getStoredPatchExtensionPath(), patchManager_1.PatchManager.loopbackApiUrl(_0x10973f.hybridPort), patchManager_1.PatchManager.loopbackApiUrl(_0x10973f.inferencePort));
   }
   envCheckItem(_0x18a967, _0xa24f06, _0x161cca, _0x3e4b81, _0x4915ad) {
     const _0x7c025f = {
@@ -1192,7 +1192,7 @@ class SidebarProvider {
     const _0x205cd2 = this.proxyManager.getStatus();
     const _0x4c2326 = this.getPatchStatus();
     if (_0x4c2326.path && _0x4c2326.patches.some(_0x5de18e => _0x5de18e.status === "available")) {
-      patchManager_1.PatchManager.applyWithCustomUrls("http://localhost:" + _0x205cd2.hybridPort, "http://localhost:" + _0x205cd2.inferencePort, this.getStoredPatchExtensionPath() || undefined);
+      patchManager_1.PatchManager.applyWithCustomUrls(patchManager_1.PatchManager.loopbackApiUrl(_0x205cd2.hybridPort), patchManager_1.PatchManager.loopbackApiUrl(_0x205cd2.inferencePort), this.getStoredPatchExtensionPath() || undefined);
     }
     return await this.checkManagedEnvironment();
   }
@@ -1212,8 +1212,8 @@ class SidebarProvider {
       return;
     }
     const _0x2b5ef9 = this.proxyManager.getStatus();
-    const _0xf055c2 = "http://localhost:" + _0x2b5ef9.hybridPort;
-    const _0x23a1bf = "http://localhost:" + _0x2b5ef9.inferencePort;
+    const _0xf055c2 = patchManager_1.PatchManager.loopbackApiUrl(_0x2b5ef9.hybridPort);
+    const _0x23a1bf = patchManager_1.PatchManager.loopbackApiUrl(_0x2b5ef9.inferencePort);
     const _0x58d015 = this.getStoredPatchExtensionPath();
     const _0x4157b5 = patchManager_1.PatchManager.applyWithCustomUrls(_0xf055c2, _0x23a1bf, _0x58d015);
     if (_0x4157b5.applied <= 0) {
@@ -1771,8 +1771,8 @@ class SidebarProvider {
         {
           
           const _0x44b0ff = this.proxyManager.getStatus();
-          const _0x2ee770 = "http://localhost:" + _0x44b0ff.hybridPort;
-          const _0xe74a9d = "http://localhost:" + _0x44b0ff.inferencePort;
+          const _0x2ee770 = patchManager_1.PatchManager.loopbackApiUrl(_0x44b0ff.hybridPort);
+          const _0xe74a9d = patchManager_1.PatchManager.loopbackApiUrl(_0x44b0ff.inferencePort);
           const _0x331886 = _0x306b04.apiUrl || _0x2ee770;
           const _0x359678 = _0x306b04.inferenceUrl || _0xe74a9d;
           const _0x1b63d2 = _0x306b04.extJsPath || this.getStoredPatchExtensionPath() || undefined;
@@ -1849,8 +1849,8 @@ class SidebarProvider {
     const _0x50cb0e = this.proxyManager.getStatus();
     const _0x16840c = this.getPatchStatus();
     const _0x103996 = this.getModeScopedConfig(this.proxyManager.readEnvConfig());
-    const _0x5af368 = "http://localhost:" + _0x50cb0e.hybridPort;
-    const _0x261671 = "http://localhost:" + _0x50cb0e.inferencePort;
+    const _0x5af368 = patchManager_1.PatchManager.loopbackApiUrl(_0x50cb0e.hybridPort);
+    const _0x261671 = patchManager_1.PatchManager.loopbackApiUrl(_0x50cb0e.inferencePort);
     const _0xf1598f = this.context.globalState.get(KEY_AUTO_START_PROXY) === true;
     const _0x117c6c = _0x16840c.path ? _0x16840c.path.replace(/\\/g, "/").split("/").slice(-4).join("/") : "未找到";
     const _0x58779c = _0x16840c.patches.filter(_0x391178 => _0x391178.status === "applied").length;
