@@ -1,0 +1,9 @@
+.vscode/**
+node_modules/**
+**/.DS_Store
+**/.env
+proxy-scripts/node_modules/**
+_deob_test/
+**/captures/**
+proxy-scripts/certs/
+proxy-scripts/debug/

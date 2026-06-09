@@ -1,0 +1,11 @@
+node_modules/
+proxy-scripts/node_modules/
+**/.env
+proxy-scripts/.env
+*.vsix
+.DS_Store
+Thumbs.db
+_deob_test/
+**/captures/**
+proxy-scripts/certs/
+proxy-scripts/debug/
