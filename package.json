@@ -22,7 +22,7 @@
     "release": "node scripts/release.js",
     "vsce:package": "vsce package --no-dependencies",
     "vsce:publish": "vsce publish",
-    "lint": "eslint src/**/*.js",
+    "lint": "eslint src/**/*.js --max-warnings 50",
     "format": "prettier --write \"src/**/*.js\""
   },
   "devDependencies": {

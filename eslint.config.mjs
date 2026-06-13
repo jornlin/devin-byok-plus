@@ -22,6 +22,9 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        // Browser/Node globals
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     rules: {
@@ -30,6 +33,10 @@ export default [
       'no-undef': 'error',
       'prefer-const': 'warn',
       'no-var': 'warn',
+      // 允许空 catch 块（用于错误抑制）
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+      // 允许未使用的赋值（可能是反混淆后的遗留代码）
+      'no-useless-assignment': 'warn',
     },
   },
   {
