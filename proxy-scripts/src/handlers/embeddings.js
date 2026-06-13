@@ -2,18 +2,27 @@ import crypto from "node:crypto";
 import https from "node:https";
 import { writeMessageField, writeBytesField, parseFields, getField, getAllFields } from "../proto.js";
 import { wrapUnary, unaryHeaders, unwrapRequest, wrapEnvelope, endOfStreamEnvelope, streamHeaders, tryGunzip } from "../connect.js";
+import { isRetriableError, calculateRetryDelay, isTimeoutError, serviceCircuitBreakers } from "../retry-utils.js";
 const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY || "";
 const VOYAGE_MODEL = "voyage-3-lite";
 const EMBEDDING_DIM = 512;
 const VOYAGE_MAX_BATCH = 128;
-function callVoyageAPI(arg0, tmp1 = "document") {
+function callVoyageAPI(arg0, tmp1 = "document", retryCount = 0) {
   return new Promise((fn, fn2) => {
+    const circuitBreaker = serviceCircuitBreakers.voyage;
+    if (!circuitBreaker.allowRequest()) {
+      console.error("  🔒 Voyage circuit breaker is OPEN - request blocked");
+      fn2(new Error("Circuit breaker open"));
+      return;
+    }
+
     const tmp2 = {
       model: VOYAGE_MODEL,
       input: arg0,
       input_type: tmp1
     };
     const tmp3 = JSON.stringify(tmp2);
+    const retryPrefix = retryCount > 0 ? `[Retry ${retryCount}] ` : "";
     const tmp4 = https.request({
       hostname: "api.voyageai.com",
       path: "/v1/embeddings",
@@ -32,22 +41,80 @@ function callVoyageAPI(arg0, tmp1 = "document") {
           const tmp13 = JSON.parse(tmp0);
           if (tmp13.data) {
             const tmp02 = tmp13.data.sort((arg03, arg1) => arg03.index - arg1.index);
+            circuitBreaker.recordSuccess();
             fn(tmp02.map(arg03 => new Float32Array(arg03.embedding)));
           } else {
-            fn2(new Error(tmp13.detail || tmp13.error?.message || "Unknown Voyage error"));
+            const errorMsg = tmp13.detail || tmp13.error?.message || "Unknown Voyage error";
+            console.error("  ❌ Voyage API error: " + errorMsg);
+
+            // 判断是否应该重试
+            if (shouldRetryVoyageRequest(arg02.statusCode, null, retryCount)) {
+              retryVoyageRequest(arg0, tmp1, retryCount, arg02.statusCode, null, fn, fn2);
+            } else {
+              circuitBreaker.recordFailure();
+              fn2(new Error(errorMsg));
+            }
           }
         } catch (tmp0) {
+          console.error("  ❌ Voyage JSON parse error: " + tmp0.message);
           fn2(tmp0);
         }
       });
     });
-    tmp4.on("error", fn2);
+    tmp4.on("error", error => {
+      console.error("  ❌ Voyage request error: " + error.message);
+
+      // 判断是否应该重试
+      if (shouldRetryVoyageRequest(0, error, retryCount)) {
+        retryVoyageRequest(arg0, tmp1, retryCount, 0, error, fn, fn2);
+      } else {
+        circuitBreaker.recordFailure();
+        fn2(error);
+      }
+    });
     tmp4.setTimeout(30000, () => {
+      console.warn("  ❌ Voyage timeout after 30000ms");
       tmp4.destroy();
-      fn2(new Error("Voyage timeout"));
+
+      // 超时错误：判断是否应该重试
+      const timeoutError = { code: "ETIMEDOUT", timeout: true };
+      if (shouldRetryVoyageRequest(0, timeoutError, retryCount)) {
+        retryVoyageRequest(arg0, tmp1, retryCount, 0, timeoutError, fn, fn2);
+      } else {
+        circuitBreaker.recordFailure();
+        fn2(new Error("Voyage timeout"));
+      }
     });
     tmp4.end(tmp3);
   });
+}
+
+// 判断是否应该重试 Voyage 请求
+function shouldRetryVoyageRequest(statusCode, error, retryCount) {
+  const MAX_RETRIES = parseInt(process.env.MAX_EMBEDDINGS_RETRIES || "2", 10);
+
+  // 超过最大重试次数
+  if (retryCount >= MAX_RETRIES) {
+    return false;
+  }
+
+  // 使用通用的重试判断逻辑
+  return isRetriableError(error, statusCode);
+}
+
+// 重试 Voyage 请求
+function retryVoyageRequest(arg0, tmp1, currentRetryCount, statusCode, error, resolve, reject) {
+  const nextRetryCount = currentRetryCount + 1;
+  const isTimeout = isTimeoutError(error);
+  const delay = calculateRetryDelay(currentRetryCount, statusCode, {}, isTimeout);
+
+  const errorDesc = error?.code || error?.message || `HTTP ${statusCode}`;
+  const MAX_RETRIES = parseInt(process.env.MAX_EMBEDDINGS_RETRIES || "2", 10);
+  console.log(`  ↩️  [Voyage] Retry ${nextRetryCount}/${MAX_RETRIES} after ${delay}ms (${errorDesc})`);
+
+  setTimeout(() => {
+    callVoyageAPI(arg0, tmp1, nextRetryCount).then(resolve, reject);
+  }, delay);
 }
 async function getEmbeddings(arg0, tmp1 = 1) {
   const tmp2 = tmp1 === 2 ? "query" : "document";

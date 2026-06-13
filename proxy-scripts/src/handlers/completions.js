@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { parseFields, writeStringField, writeMessageField, writeVarintField } from "../proto.js";
 import { wrapUnary, unaryHeaders, unwrapRequest } from "../connect.js";
 import { getProviderConfig, getRuntimeConfig } from "./models.js";
+import { isRetriableError, calculateRetryDelay, isTimeoutError } from "../retry-utils.js";
 const PROXY_DEVICE_ID = process.env.PROXY_DEVICE_ID || "";
 const PROXY_CLIENT_VERSION = process.env.PROXY_CLIENT_VERSION || "0.0.0";
 const _COMPLETION_MODEL = process.env.COMPLETION_MODEL || "";
@@ -100,7 +101,7 @@ function buildGetCompletionsResponse(arg0) {
   const tmp4 = writeMessageField(1, tmp3);
   return tmp4;
 }
-function callAnthropicAPI(arg0, arg1) {
+function callAnthropicAPI(arg0, arg1, retryCount = 0) {
   return new Promise(fn => {
     const tmp1 = getProviderConfig().anthropic;
     if (!tmp1.apiKey) {
@@ -129,68 +130,127 @@ function callAnthropicAPI(arg0, arg1) {
     };
     const tmp7 = JSON.stringify(tmp6);
     const tmp8 = getCompletionTimeoutMs();
-    console.log("  [completions] API call: model=" + getCompletionModel() + (" prefix=" + tmp2.length + "b suffix=" + tmp3.length + "b timeout=" + tmp8 + "ms"));
+    const retryPrefix = retryCount > 0 ? `[Retry ${retryCount}] ` : "";
+    console.log("  " + retryPrefix + "[completions] API call: model=" + getCompletionModel() + (" prefix=" + tmp2.length + "b suffix=" + tmp3.length + "b timeout=" + tmp8 + "ms"));
     const tmp9 = tmp1.useHttp ? http : https;
     const tmp10 = tmp1.parsed.port !== 443 ? tmp1.parsed.port : tmp1.useHttp ? 80 : 443;
-    const tmp11 = tmp9.request({
-      hostname: tmp1.parsed.hostname,
-      port: tmp10,
-      path: tmp1.apiPath,
-      method: "POST",
-      rejectUnauthorized: !tmp1.useHttp && tmp1.parsed.port === 443,
-      headers: {
-        "content-type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-api-key": tmp1.apiKey,
-        "content-length": Buffer.byteLength(tmp7),
-        "x-proxy-device-id": PROXY_DEVICE_ID,
-        "x-proxy-client-version": PROXY_CLIENT_VERSION,
-        "x-proxy-timestamp": Date.now().toString(),
-        "x-proxy-nonce": crypto.randomBytes(16).toString("hex"),
-        "x-proxy-requested-model": getCompletionModel()
-      }
-    }, arg02 => {
-      let tmp12 = "";
-      arg02.setEncoding("utf8");
-      arg02.on("data", arg03 => {
-        tmp12 += arg03;
-      });
-      arg02.on("end", () => {
-        console.log("  [completions] API status=" + arg02.statusCode + (" body=" + tmp12.slice(0, 400)));
-        if (arg02.statusCode !== 200) {
-          console.error("  [completions] API error " + arg02.statusCode + ": " + tmp12.slice(0, 200));
+
+    const attemptRequest = () => {
+      const tmp11 = tmp9.request({
+        hostname: tmp1.parsed.hostname,
+        port: tmp10,
+        path: tmp1.apiPath,
+        method: "POST",
+        rejectUnauthorized: !tmp1.useHttp && tmp1.parsed.port === 443,
+        headers: {
+          "content-type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "x-api-key": tmp1.apiKey,
+          "content-length": Buffer.byteLength(tmp7),
+          "x-proxy-device-id": PROXY_DEVICE_ID,
+          "x-proxy-client-version": PROXY_CLIENT_VERSION,
+          "x-proxy-timestamp": Date.now().toString(),
+          "x-proxy-nonce": crypto.randomBytes(16).toString("hex"),
+          "x-proxy-requested-model": getCompletionModel()
+        }
+      }, arg02 => {
+        let tmp12 = "";
+        arg02.setEncoding("utf8");
+        arg02.on("data", arg03 => {
+          tmp12 += arg03;
+        });
+        arg02.on("end", () => {
+          console.log("  [completions] API status=" + arg02.statusCode + (" body=" + tmp12.slice(0, 400)));
+          if (arg02.statusCode !== 200) {
+            console.error("  [completions] API error " + arg02.statusCode + ": " + tmp12.slice(0, 200));
+
+            // 判断是否应该重试
+            if (shouldRetryCompletionRequest(arg02.statusCode, null, retryCount)) {
+              retryCompletionRequest(arg0, arg1, retryCount, arg02.statusCode, null, fn);
+            } else {
+              fn("");
+            }
+            return;
+          }
+          try {
+            const tmp0 = JSON.parse(tmp12);
+            const tmp13 = tmp0?.content?.[0]?.text ?? "";
+            console.log("  [completions] Completion text: " + JSON.stringify(tmp13.slice(0, 120)));
+            fn(tmp13.trim());
+          } catch (tmp0) {
+            console.error("  [completions] JSON parse error: " + tmp0.message);
+            fn("");
+          }
+        });
+        arg02.on("error", arg03 => {
+          console.error("  [completions] API response error: " + arg03.message);
           fn("");
+        });
+      });
+      tmp11.setTimeout(tmp8, () => {
+        console.warn("  [completions] API timeout after " + tmp8 + "ms");
+        tmp11.destroy();
+
+        // 超时错误：判断是否应该重试
+        const timeoutError = { code: "ETIMEDOUT", timeout: true };
+        if (shouldRetryCompletionRequest(0, timeoutError, retryCount)) {
+          retryCompletionRequest(arg0, arg1, retryCount, 0, timeoutError, fn);
+        } else {
+          fn("");
+        }
+      });
+      tmp11.on("error", arg02 => {
+        if (arg02.message.includes("socket hang up") || arg02.message.includes("ECONNRESET")) {
+          // 连接错误：判断是否应该重试
+          if (shouldRetryCompletionRequest(0, arg02, retryCount)) {
+            retryCompletionRequest(arg0, arg1, retryCount, 0, arg02, fn);
+          } else {
+            fn("");
+          }
           return;
         }
-        try {
-          const tmp0 = JSON.parse(tmp12);
-          const tmp13 = tmp0?.content?.[0]?.text ?? "";
-          console.log("  [completions] Completion text: " + JSON.stringify(tmp13.slice(0, 120)));
-          fn(tmp13.trim());
-        } catch (tmp0) {
-          console.error("  [completions] JSON parse error: " + tmp0.message);
+        console.error("  [completions] API request error: " + arg02.message);
+
+        // 其他网络错误：判断是否应该重试
+        if (shouldRetryCompletionRequest(0, arg02, retryCount)) {
+          retryCompletionRequest(arg0, arg1, retryCount, 0, arg02, fn);
+        } else {
           fn("");
         }
       });
-      arg02.on("error", arg03 => {
-        console.error("  [completions] API response error: " + arg03.message);
-        fn("");
-      });
-    });
-    tmp11.setTimeout(tmp8, () => {
-      console.warn("  [completions] API timeout after " + tmp8 + "ms — returning empty");
-      tmp11.destroy();
-      fn("");
-    });
-    tmp11.on("error", arg02 => {
-      if (arg02.message.includes("socket hang up") || arg02.message.includes("ECONNRESET")) {
-        return;
-      }
-      console.error("  [completions] API request error: " + arg02.message);
-      fn("");
-    });
-    tmp11.end(tmp7);
+      tmp11.end(tmp7);
+    };
+
+    attemptRequest();
   });
+}
+
+// 判断是否应该重试 Completion 请求
+function shouldRetryCompletionRequest(statusCode, error, retryCount) {
+  const MAX_RETRIES = parseInt(process.env.MAX_COMPLETION_RETRIES || "2", 10); // Completion 重试次数较少
+
+  // 超过最大重试次数
+  if (retryCount >= MAX_RETRIES) {
+    return false;
+  }
+
+  // 使用通用的重试判断逻辑
+  return isRetriableError(error, statusCode);
+}
+
+// 重试 Completion 请求
+function retryCompletionRequest(arg0, arg1, currentRetryCount, statusCode, error, resolve) {
+  const nextRetryCount = currentRetryCount + 1;
+  const isTimeout = isTimeoutError(error);
+  const delay = calculateRetryDelay(currentRetryCount, statusCode, {}, isTimeout);
+
+  const errorDesc = error?.code || error?.message || `HTTP ${statusCode}`;
+  const MAX_RETRIES = parseInt(process.env.MAX_COMPLETION_RETRIES || "2", 10);
+  console.log(`  ↩️  [completions] Retry ${nextRetryCount}/${MAX_RETRIES} after ${delay}ms (${errorDesc})`);
+
+  setTimeout(() => {
+    callAnthropicAPI(arg0, arg1, nextRetryCount).then(resolve);
+  }, delay);
 }
 export async function handleGetCompletions(arg0, arg1, arg2) {
   console.log("[completions] GetCompletions (" + (arg2?.length ?? 0) + "b)");

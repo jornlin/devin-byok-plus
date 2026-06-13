@@ -13,6 +13,7 @@ import { buildTextDelta } from "./build-response.js";
 import { emitChatStart, emitChatEnd, emitAIText, emitToolCall, emitStreamStatus, consumeInjectedMessages, getActiveMonitorTarget } from "../ws-bridge.js";
 import { buildGatewayCapabilityKey, getGatewayCapability, markGatewayCapability } from "./gateway-capability.js";
 import { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
+import { isRetriableError, calculateRetryDelay, isTimeoutError, serviceCircuitBreakers } from "../retry-utils.js";
 export { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
 const keepAliveAgent = new https.Agent({
   keepAlive: true,
@@ -661,12 +662,27 @@ export function buildOpenAIChatCompletionsBody({
   }
   return tmp19;
 }
+// 判断是否应该重试 OpenAI 请求
+function shouldRetryOpenAIRequest(statusCode, error, retryCount) {
+  const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || "3", 10);
+
+  // 超过最大重试次数
+  if (retryCount >= MAX_RETRIES) {
+    return false;
+  }
+
+  // 使用通用的重试判断逻辑
+  return isRetriableError(error, statusCode);
+}
+
 function attachOpenAISseStream(arg02, {
   processor: tmp13,
   lifecycle: tmp24,
   timing: tmp10,
   clientResponse: tmp11,
-  onStreamEnd: fn
+  onStreamEnd: fn,
+  onDataReceived: onDataReceived = null,
+  onSuccess: onSuccess = null
 }) {
   const tmp1 = new StringDecoder("utf8");
   let sseBuffer = "";
@@ -707,6 +723,9 @@ function attachOpenAISseStream(arg02, {
   }
   fn3();
   arg02.on("data", arg03 => {
+    if (onDataReceived) {
+      onDataReceived();
+    }
     if (tmp10) {
       tmp10.mark("first_upstream_chunk", "bytes=" + Buffer.byteLength(arg03));
     }
@@ -735,6 +754,9 @@ function attachOpenAISseStream(arg02, {
       for (const tmp03 of tmp02) {
         tmp24.safeWrite(wrapEnvelope(tmp03));
       }
+    }
+    if (onSuccess && tmp13.isDone) {
+      onSuccess();
     }
     tmp24.finalize("  ✅ OpenAI stream ended (stop: " + tmp13.stopReason + ")");
   });
@@ -770,7 +792,7 @@ function streamAnthropic(arg0, arg1, {
   monitorTargetId: tmp9,
   thinkingOptions: tmp10,
   byokSlot: tmp11 = null
-}) {
+}, retryCount = 0) {
   const tmp12 = getProviderConfig(tmp11).anthropic;
   const tmp13 = getForwardedToolChoice(tmp4, tmp5, "Anthropic");
   const tmp14 = {
@@ -802,16 +824,30 @@ function streamAnthropic(arg0, arg1, {
   const tmp15 = tmp14.thinking ? tmp14.thinking.type === "adaptive" ? "adaptive effort=" + (tmp14.output_config?.effort || tmp10?.reasoningEffort || "medium") : "enabled budget=" + (tmp14.thinking.budget_tokens || "?") + (tmp10?.reasoningEffort ? " effort=" + tmp10.reasoningEffort : "") : "off";
   console.log("  🧩 Anthropic/Sub2API thinking: " + tmp15);
   const tmp16 = JSON.stringify(tmp14);
-  arg1.writeHead(200, streamHeaders());
+  if (retryCount === 0) {
+    arg1.writeHead(200, streamHeaders());
+  }
   const processor = new AnthropicStreamProcessor(tmp7, tmp6, tmp9);
   let tmp17;
   const tmp18 = createStreamLifecycle(arg1, () => tmp17, "Anthropic", tmp7, tmp8);
   const tmp19 = tmp12.useHttp ? http : https;
   const tmp20 = tmp12.parsed.port !== 443 ? tmp12.parsed.port : tmp12.useHttp ? 80 : 443;
-  console.log("  → Anthropic " + tmp12.host + tmp12.apiPath + " model=" + tmp6 + " key=" + (tmp12.apiKey ? "set" : "empty"));
+  const retryPrefix = retryCount > 0 ? `[Retry ${retryCount}] ` : "";
+  console.log("  → " + retryPrefix + "Anthropic " + tmp12.host + tmp12.apiPath + " model=" + tmp6 + " key=" + (tmp12.apiKey ? "set" : "empty"));
   if (tmp8) {
-    tmp8.mark("upstream_request_start", "bytes=" + Buffer.byteLength(tmp16));
+    tmp8.mark(retryCount === 0 ? "upstream_request_start" : `upstream_retry_${retryCount}`, "bytes=" + Buffer.byteLength(tmp16));
   }
+
+  // 检查熔断器状态
+  const circuitBreaker = serviceCircuitBreakers.anthropic;
+  if (!circuitBreaker.allowRequest()) {
+    console.error("  🔒 Anthropic circuit breaker is OPEN - request blocked");
+    tmp18.fail("[Circuit Breaker Open] Too many consecutive failures, please try again later");
+    return;
+  }
+
+  let hasReceivedData = false; // 标记是否接收到任何数据
+
   tmp17 = tmp19.request({
     hostname: tmp12.parsed.hostname,
     port: tmp20,
@@ -840,7 +876,18 @@ function streamAnthropic(arg0, arg1, {
       arg02.on("end", () => {
         console.error("  ❌ Body: " + sanitizeLogBody(tmp02));
         const tmp03 = buildProviderErrorMessage("Anthropic", arg02.statusCode, tmp02);
-        tmp18.fail(tmp03);
+
+        // 判断是否应该重试
+        if (shouldRetryAnthropicRequest(arg02.statusCode, null, retryCount, hasReceivedData)) {
+          retryAnthropicRequest(arg0, arg1, {
+            systemPrompt: tmp2, messages: tmp3, tools: tmp4, toolChoice: tmp5,
+            resolvedModel: tmp6, messageId: tmp7, timing: tmp8, monitorTargetId: tmp9,
+            thinkingOptions: tmp10, byokSlot: tmp11
+          }, retryCount, arg02.statusCode, null);
+        } else {
+          circuitBreaker.recordFailure();
+          tmp18.fail(tmp03);
+        }
       });
       return;
     }
@@ -881,6 +928,7 @@ function streamAnthropic(arg0, arg1, {
     }
     fn2();
     arg02.on("data", arg03 => {
+      hasReceivedData = true; // 标记已接收到数据
       if (tmp8 && isFirstChunk) {
         tmp8.mark("first_upstream_chunk", "bytes=" + Buffer.byteLength(arg03));
         isFirstChunk = false;
@@ -913,6 +961,7 @@ function streamAnthropic(arg0, arg1, {
         }
         tmp18.finalize("  ✅ Stream ended (forced stop)");
       } else if (processor.isDone) {
+        circuitBreaker.recordSuccess(); // 成功请求，重置熔断器
         tmp18.finalize("  ✅ Stream ended normally");
       }
     });
@@ -940,8 +989,21 @@ function streamAnthropic(arg0, arg1, {
       return;
     }
     console.error("  ❌ Anthropic request timeout after " + ANTHROPIC_REQUEST_TIMEOUT_MS + "ms");
-    tmp18.fail("[Anthropic Request Timeout]");
-    tmp17.destroy();
+
+    // 超时错误：判断是否应该重试
+    const timeoutError = { code: "ETIMEDOUT", timeout: true };
+    if (shouldRetryAnthropicRequest(0, timeoutError, retryCount, hasReceivedData)) {
+      tmp17.destroy();
+      retryAnthropicRequest(arg0, arg1, {
+        systemPrompt: tmp2, messages: tmp3, tools: tmp4, toolChoice: tmp5,
+        resolvedModel: tmp6, messageId: tmp7, timing: tmp8, monitorTargetId: tmp9,
+        thinkingOptions: tmp10, byokSlot: tmp11
+      }, retryCount, 0, timeoutError);
+    } else {
+      circuitBreaker.recordFailure();
+      tmp18.fail("[Anthropic Request Timeout]");
+      tmp17.destroy();
+    }
   });
   tmp17.on("error", arg02 => {
     if (tmp18.wasClosedByClient() && (arg02.code === "ECONNRESET" || arg02.code === "ECONNABORTED")) {
@@ -949,12 +1011,56 @@ function streamAnthropic(arg0, arg1, {
     }
     const tmp1 = describeNetworkError(arg02, tmp12.host, tmp12.parsed.port);
     console.error("  ❌ Anthropic request error: " + tmp1);
-    tmp18.fail("[Anthropic Connection Error] " + tmp1);
+
+    // 网络错误：判断是否应该重试
+    if (shouldRetryAnthropicRequest(0, arg02, retryCount, hasReceivedData)) {
+      retryAnthropicRequest(arg0, arg1, {
+        systemPrompt: tmp2, messages: tmp3, tools: tmp4, toolChoice: tmp5,
+        resolvedModel: tmp6, messageId: tmp7, timing: tmp8, monitorTargetId: tmp9,
+        thinkingOptions: tmp10, byokSlot: tmp11
+      }, retryCount, 0, arg02);
+    } else {
+      circuitBreaker.recordFailure();
+      tmp18.fail("[Anthropic Connection Error] " + tmp1);
+    }
   });
   tmp17.end(tmp16);
   if (tmp8) {
     tmp8.mark("upstream_request_sent");
   }
+}
+
+// 判断是否应该重试 Anthropic 请求
+function shouldRetryAnthropicRequest(statusCode, error, retryCount, hasReceivedData) {
+  const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || "3", 10);
+
+  // 超过最大重试次数
+  if (retryCount >= MAX_RETRIES) {
+    return false;
+  }
+
+  // 如果已经接收到数据（流已经开始），则不重试（避免重复数据）
+  if (hasReceivedData) {
+    return false;
+  }
+
+  // 使用通用的重试判断逻辑
+  return isRetriableError(error, statusCode);
+}
+
+// 重试 Anthropic 请求
+function retryAnthropicRequest(arg0, arg1, options, currentRetryCount, statusCode, error) {
+  const nextRetryCount = currentRetryCount + 1;
+  const isTimeout = isTimeoutError(error);
+  const delay = calculateRetryDelay(currentRetryCount, statusCode, {}, isTimeout);
+
+  const errorDesc = error?.code || error?.message || `HTTP ${statusCode}`;
+  console.log(`  ↩️  [Anthropic] Retry ${nextRetryCount}/${process.env.MAX_RETRIES || 3} after ${delay}ms (${errorDesc})`);
+  emitStreamStatus("retry", `Anthropic retry ${nextRetryCount} after ${delay}ms (${errorDesc})`);
+
+  setTimeout(() => {
+    streamAnthropic(arg0, arg1, options, nextRetryCount);
+  }, delay);
 }
 function streamOpenAI(arg0, arg1, {
   systemPrompt: tmp2,
@@ -1084,9 +1190,24 @@ function streamOpenAI(arg0, arg1, {
   const tmp27 = tmp14.useHttp ? http : https;
   const tmp28 = tmp38;
   const tmp29 = tmp14.apiKey ? tmp14.apiKey.slice(0, 6) + "..." + tmp14.apiKey.slice(-4) : "empty";
-  const fn2 = () => {
+  const fn2 = (retryCount = 0, lastError = null) => {
     const tmp02 = tmp33[tmp34++];
     if (!tmp02) {
+      // 所有路径都尝试完毕，判断是否应该网络层重试
+      if (lastError && shouldRetryOpenAIRequest(0, lastError, retryCount)) {
+        const isTimeout = isTimeoutError(lastError);
+        const delay = calculateRetryDelay(retryCount, 0, {}, isTimeout);
+        const errorDesc = lastError.code || lastError.message || "unknown";
+        console.log(`  ↩️  [OpenAI] Retry ${retryCount + 1}/${process.env.MAX_RETRIES || 3} after ${delay}ms (${errorDesc})`);
+        emitStreamStatus("retry", `OpenAI retry ${retryCount + 1} after ${delay}ms (${errorDesc})`);
+
+        setTimeout(() => {
+          tmp34 = 0; // 重置路径索引
+          fn2(retryCount + 1, null);
+        }, delay);
+        return;
+      }
+
       tmp24.fail(tmp35 || "[OpenAI Error]");
       return;
     }
@@ -1098,10 +1219,23 @@ function streamOpenAI(arg0, arg1, {
       processor.setAllowedTools(tmp4.map(arg02 => arg02.name));
     }
     const tmp03 = JSON.stringify(tmp02.body);
-    console.log("  → OpenAI " + (tmp14.useHttp ? "http" : "https") + "://" + tmp14.parsed.hostname + ":" + tmp28 + tmp02.path + " model=" + tmp6 + " key=" + tmp29);
+    const retryPrefix = retryCount > 0 ? `[Retry ${retryCount}] ` : "";
+    console.log("  → " + retryPrefix + "OpenAI " + (tmp14.useHttp ? "http" : "https") + "://" + tmp14.parsed.hostname + ":" + tmp28 + tmp02.path + " model=" + tmp6 + " key=" + tmp29);
     if (tmp10) {
-      tmp10.mark(tmp34 === 1 ? "upstream_request_start" : "upstream_fallback_start", "bytes=" + Buffer.byteLength(tmp03) + " tools=" + (tmp16 && tmp4 ? tmp4.length : 0));
+      const markName = retryCount > 0 ? `upstream_retry_${retryCount}` : (tmp34 === 1 ? "upstream_request_start" : "upstream_fallback_start");
+      tmp10.mark(markName, "bytes=" + Buffer.byteLength(tmp03) + " tools=" + (tmp16 && tmp4 ? tmp4.length : 0));
     }
+
+    // 检查熔断器状态
+    const circuitBreaker = serviceCircuitBreakers.openai;
+    if (!circuitBreaker.allowRequest()) {
+      console.error("  🔒 OpenAI circuit breaker is OPEN - request blocked");
+      tmp24.fail("[Circuit Breaker Open] Too many consecutive failures, please try again later");
+      return;
+    }
+
+    let hasReceivedData = false; // 标记是否接收到任何数据
+
     tmp23 = tmp27.request({
       hostname: tmp14.parsed.hostname,
       port: tmp28,
@@ -1134,14 +1268,30 @@ function streamOpenAI(arg0, arg1, {
               preferChatCompletions: true,
               reason: "responses rejected: HTTP " + arg02.statusCode
             });
-            fn2();
+            fn2(retryCount);
             return;
           }
           if (tmp02.mode === "chat" && !tmp02.withoutGeminiThinking && tmp36 && shouldRetryWithoutGeminiThinking(arg02.statusCode, tmp12) && tmp34 < tmp33.length) {
             console.log("  ↩️  OpenAI-compatible gateway rejected Gemini thinking fields — retrying chat/completions without thinking_config");
-            fn2();
+            fn2(retryCount);
             return;
           }
+
+          // 判断是否应该重试（在所有路径尝试完之后）
+          if (tmp34 >= tmp33.length && shouldRetryOpenAIRequest(arg02.statusCode, null, retryCount)) {
+            const isTimeout = false;
+            const delay = calculateRetryDelay(retryCount, arg02.statusCode, {}, isTimeout);
+            console.log(`  ↩️  [OpenAI] Retry ${retryCount + 1}/${process.env.MAX_RETRIES || 3} after ${delay}ms (HTTP ${arg02.statusCode})`);
+            emitStreamStatus("retry", `OpenAI retry ${retryCount + 1} after ${delay}ms (HTTP ${arg02.statusCode})`);
+
+            setTimeout(() => {
+              tmp34 = 0; // 重置路径索引
+              fn2(retryCount + 1, null);
+            }, delay);
+            return;
+          }
+
+          circuitBreaker.recordFailure();
           tmp24.fail(tmp35);
         });
         return;
@@ -1152,7 +1302,9 @@ function streamOpenAI(arg0, arg1, {
         lifecycle: tmp24,
         timing: tmp10,
         clientResponse: arg1,
-        onStreamEnd: fn
+        onStreamEnd: fn,
+        onDataReceived: () => { hasReceivedData = true; },
+        onSuccess: () => { circuitBreaker.recordSuccess(); }
       });
     });
     tmp23.setTimeout(OPENAI_REQUEST_TIMEOUT_MS, () => {
@@ -1161,6 +1313,24 @@ function streamOpenAI(arg0, arg1, {
       }
       console.error("  ❌ OpenAI request timeout after " + OPENAI_REQUEST_TIMEOUT_MS + "ms");
       fn("request timeout " + OPENAI_REQUEST_TIMEOUT_MS + "ms");
+
+      // 超时错误：判断是否应该重试
+      const timeoutError = { code: "ETIMEDOUT", timeout: true };
+      if (!hasReceivedData && shouldRetryOpenAIRequest(0, timeoutError, retryCount)) {
+        tmp23.destroy();
+        const isTimeout = true;
+        const delay = calculateRetryDelay(retryCount, 0, {}, isTimeout);
+        console.log(`  ↩️  [OpenAI] Retry ${retryCount + 1}/${process.env.MAX_RETRIES || 3} after ${delay}ms (timeout)`);
+        emitStreamStatus("retry", `OpenAI retry ${retryCount + 1} after ${delay}ms (timeout)`);
+
+        setTimeout(() => {
+          tmp34 = 0; // 重置路径索引
+          fn2(retryCount + 1, null);
+        }, delay);
+        return;
+      }
+
+      circuitBreaker.recordFailure();
       tmp24.fail("[OpenAI Request Timeout]");
       tmp23.destroy();
     });
@@ -1171,6 +1341,23 @@ function streamOpenAI(arg0, arg1, {
       const tmp12 = describeNetworkError(arg03, tmp14.host, tmp14.parsed.port);
       console.error("  ❌ OpenAI request error: " + tmp12);
       fn("request error: " + (arg03.message || arg03.code || "unknown"));
+
+      // 网络错误：判断是否应该重试
+      if (!hasReceivedData && shouldRetryOpenAIRequest(0, arg03, retryCount)) {
+        const isTimeout = isTimeoutError(arg03);
+        const delay = calculateRetryDelay(retryCount, 0, {}, isTimeout);
+        const errorDesc = arg03.code || arg03.message || "unknown";
+        console.log(`  ↩️  [OpenAI] Retry ${retryCount + 1}/${process.env.MAX_RETRIES || 3} after ${delay}ms (${errorDesc})`);
+        emitStreamStatus("retry", `OpenAI retry ${retryCount + 1} after ${delay}ms (${errorDesc})`);
+
+        setTimeout(() => {
+          tmp34 = 0; // 重置路径索引
+          fn2(retryCount + 1, arg03);
+        }, delay);
+        return;
+      }
+
+      circuitBreaker.recordFailure();
       tmp24.fail("[OpenAI Connection Error] " + tmp12);
     });
     tmp23.end(tmp03);

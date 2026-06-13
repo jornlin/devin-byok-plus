@@ -9,3 +9,6 @@ _deob_test/
 **/captures/**
 proxy-scripts/certs/
 proxy-scripts/debug/
+
+.idea
+.claude

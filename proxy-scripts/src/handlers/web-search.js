@@ -4,9 +4,18 @@ import crypto from "node:crypto";
 import { URL } from "node:url";
 import { writeStringField, writeVarintField, writeMessageField, parseFields, getField } from "../proto.js";
 import { wrapUnary, unaryHeaders, unwrapRequest } from "../connect.js";
-function searchDuckDuckGo(arg0, tmp1 = 8) {
+import { isRetriableError, calculateRetryDelay, isTimeoutError, serviceCircuitBreakers } from "../retry-utils.js";
+function searchDuckDuckGo(arg0, tmp1 = 8, retryCount = 0) {
   return new Promise((fn, fn2) => {
+    const circuitBreaker = serviceCircuitBreakers.duckduckgo;
+    if (!circuitBreaker.allowRequest()) {
+      console.error("  🔒 DuckDuckGo circuit breaker is OPEN - request blocked");
+      fn2(new Error("Circuit breaker open"));
+      return;
+    }
+
     const tmp2 = "q=" + encodeURIComponent(arg0);
+    const retryPrefix = retryCount > 0 ? `[Retry ${retryCount}] ` : "";
     const tmp3 = https.request({
       hostname: "html.duckduckgo.com",
       path: "/html/",
@@ -23,19 +32,68 @@ function searchDuckDuckGo(arg0, tmp1 = 8) {
       arg02.on("end", () => {
         try {
           const tmp0 = parseDDGResults(tmp12, tmp1);
+          circuitBreaker.recordSuccess();
           fn(tmp0);
         } catch (tmp0) {
+          console.error("  ❌ DDG parse error: " + tmp0.message);
           fn2(tmp0);
         }
       });
     });
-    tmp3.on("error", fn2);
+    tmp3.on("error", error => {
+      console.error("  ❌ DDG request error: " + error.message);
+
+      // 判断是否应该重试
+      if (shouldRetryWebSearchRequest(0, error, retryCount)) {
+        retryWebSearchRequest(arg0, tmp1, retryCount, 0, error, fn, fn2);
+      } else {
+        circuitBreaker.recordFailure();
+        fn2(error);
+      }
+    });
     tmp3.setTimeout(10000, () => {
       tmp3.destroy();
-      fn2(new Error("DDG timeout"));
+      console.warn("  ❌ DDG timeout after 10000ms");
+
+      // 超时错误：判断是否应该重试
+      const timeoutError = { code: "ETIMEDOUT", timeout: true };
+      if (shouldRetryWebSearchRequest(0, timeoutError, retryCount)) {
+        retryWebSearchRequest(arg0, tmp1, retryCount, 0, timeoutError, fn, fn2);
+      } else {
+        circuitBreaker.recordFailure();
+        fn2(new Error("DDG timeout"));
+      }
     });
     tmp3.end(tmp2);
   });
+}
+
+// 判断是否应该重试 Web Search 请求
+function shouldRetryWebSearchRequest(statusCode, error, retryCount) {
+  const MAX_RETRIES = parseInt(process.env.MAX_WEBSEARCH_RETRIES || "1", 10); // Web Search 只重试 1 次
+
+  // 超过最大重试次数
+  if (retryCount >= MAX_RETRIES) {
+    return false;
+  }
+
+  // 使用通用的重试判断逻辑
+  return isRetriableError(error, statusCode);
+}
+
+// 重试 Web Search 请求
+function retryWebSearchRequest(arg0, tmp1, currentRetryCount, statusCode, error, resolve, reject) {
+  const nextRetryCount = currentRetryCount + 1;
+  const isTimeout = isTimeoutError(error);
+  const delay = calculateRetryDelay(currentRetryCount, statusCode, {}, isTimeout);
+
+  const errorDesc = error?.code || error?.message || `HTTP ${statusCode}`;
+  const MAX_RETRIES = parseInt(process.env.MAX_WEBSEARCH_RETRIES || "1", 10);
+  console.log(`  ↩️  [WebSearch] Retry ${nextRetryCount}/${MAX_RETRIES} after ${delay}ms (${errorDesc})`);
+
+  setTimeout(() => {
+    searchDuckDuckGo(arg0, tmp1, nextRetryCount).then(resolve, reject);
+  }, delay);
 }
 function parseDDGResults(arg0, arg1) {
   const tmp2 = [];
