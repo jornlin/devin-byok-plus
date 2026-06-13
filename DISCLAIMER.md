@@ -8,9 +8,9 @@
 
 ## 1. 非官方项目
 
-- **Devin BYOK Bridge**（原名 Windsurf BYOK Bridge）为社区开源工具，由 [`jornlin`](https://github.com/jornlin) 维护。本项目 fork 自 [ycx932436/devin-byok-bridge](https://github.com/ycx932436/devin-byok-bridge)，在原有基础上进行了功能扩展与持续维护。
+- **Devin BYOK Plus**（原名 Windsurf BYOK Bridge / Devin BYOK Bridge）为社区开源工具，由 [`jornlin`](https://github.com/jornlin) 维护。本项目 fork 自 [ycx932436/devin-byok-bridge](https://github.com/ycx932436/devin-byok-bridge)，在原有基础上进行了功能扩展与持续维护。
 - **与 Devin Desktop、Cognition、Codeium、Exafunction、Anthropic、OpenAI、Google 及其关联方无任何隶属、授权、合作或背书关系。**
-- 名称中的 “Devin”“Windsurf”“Devin Local”“Codeium” 等字样**仅用于说明兼容目标、历史名称或技术上下文**，不代表官方产品、官方扩展或商标授权。
+- 名称中的 “Devin””Windsurf””Devin Local””Codeium” 等字样**仅用于说明兼容目标、历史名称或技术上下文**，不代表官方产品、官方扩展或商标授权。
 - 本仓库**不是** Devin Desktop 官方插件市场条目，也**不会**获得官方技术支持。
 
 ---
@@ -100,7 +100,7 @@
 - 本仓库**不授予**任何第三方商标、商业标识或专有协议的使用权。
 - 仓库中可能包含基于公开行为观察实现的协议适配逻辑；**不表示**获得任何专有 API 或协议的正式授权。
 
-若权利人认为本仓库内容侵犯其权益，请通过 [GitHub Security Advisories](https://github.com/jornlin/devin-byok-bridge/security/advisories) 或仓库 Issue 联系维护者；维护者将在合理范围内评估并响应。
+若权利人认为本仓库内容侵犯其权益，请通过 [GitHub Security Advisories](https://github.com/jornlin/devin-byok-plus/security/advisories) 或仓库 Issue 联系维护者；维护者将在合理范围内评估并响应。
 
 ---
 

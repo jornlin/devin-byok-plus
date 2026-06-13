@@ -8,8 +8,9 @@ const { reloadWorkbenchWindow } = require('./reloadWorkbench');
 const { getDeviceId, getClientVersion } = require('./integrity');
 
 let proxyManager;
-const KEY_AUTO_START_PROXY = 'devin-byok-bridge.autoStartProxy';
+const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const LEGACY_KEY_AUTO_START_PROXY = 'windsurf-byok-bridge.autoStartProxy';
+const LEGACY_KEY_AUTO_START_PROXY_2 = 'devin-byok-bridge.autoStartProxy';
 
 function activate(context) {
   const extensionPath = context.extensionPath;
@@ -21,23 +22,26 @@ function activate(context) {
   if (context.globalState.get(KEY_AUTO_START_PROXY) === undefined && context.globalState.get(LEGACY_KEY_AUTO_START_PROXY) === true) {
     context.globalState.update(KEY_AUTO_START_PROXY, true);
   }
+  if (context.globalState.get(KEY_AUTO_START_PROXY) === undefined && context.globalState.get(LEGACY_KEY_AUTO_START_PROXY_2) === true) {
+    context.globalState.update(KEY_AUTO_START_PROXY, true);
+  }
 
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('devin-byok-bridge.sidebar', sidebar),
-    vscode.commands.registerCommand('devin-byok-bridge.startProxy', async () => {
+    vscode.window.registerWebviewViewProvider('devin-byok-plus.sidebar', sidebar),
+    vscode.commands.registerCommand('devin-byok-plus.startProxy', async () => {
       const ok = await proxyManager.start('both', sidebar.getRuntimeConfigForCurrentMode());
       if (ok) {
         await sidebar.ensurePatchAppliedAfterProxyStart(true);
-        vscode.window.showInformationMessage('Devin BYOK Bridge 已启动');
+        vscode.window.showInformationMessage('Devin BYOK Plus 已启动');
         sidebar.refresh();
       }
     }),
-    vscode.commands.registerCommand('devin-byok-bridge.stopProxy', () => {
+    vscode.commands.registerCommand('devin-byok-plus.stopProxy', () => {
       proxyManager.stop();
-      vscode.window.showInformationMessage('Devin BYOK Bridge 已停止');
+      vscode.window.showInformationMessage('Devin BYOK Plus 已停止');
       sidebar.refresh();
     }),
-    vscode.commands.registerCommand('devin-byok-bridge.applyPatch', async () => {
+    vscode.commands.registerCommand('devin-byok-plus.applyPatch', async () => {
       const status = proxyManager.getStatus();
       const result = PatchManager.applyWithCustomUrls(
         PatchManager.loopbackApiUrl(status.hybridPort),
@@ -54,7 +58,7 @@ function activate(context) {
       }
       sidebar.refresh();
     }),
-    vscode.commands.registerCommand('devin-byok-bridge.revertPatch', async () => {
+    vscode.commands.registerCommand('devin-byok-plus.revertPatch', async () => {
       if (PatchManager.revert()) {
         vscode.window.showInformationMessage('补丁已还原，需重启 Devin Desktop');
       } else {
@@ -62,7 +66,7 @@ function activate(context) {
       }
       sidebar.refresh();
     }),
-    vscode.commands.registerCommand('devin-byok-bridge.reloadWorkbench', () => reloadWorkbenchWindow())
+    vscode.commands.registerCommand('devin-byok-plus.reloadWorkbench', () => reloadWorkbenchWindow())
   );
 
   if (context.globalState.get(KEY_AUTO_START_PROXY) === true) {
@@ -72,7 +76,7 @@ function activate(context) {
       });
     }, 2000);
   }
-  console.log('[Devin BYOK Bridge] 扩展已就绪');
+  console.log('[Devin BYOK Plus] 扩展已就绪');
 }
 
 function deactivate() {

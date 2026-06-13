@@ -53,10 +53,12 @@ const thinkingEffort_1 = require("./thinkingEffort");
 const externalConfigImporter_1 = require("./externalConfigImporter");
 const sidebarHtml_1 = require("./sidebarHtml");
 const gatewayUrl_1 = require("./gatewayUrl");
-const KEY_AUTO_START_PROXY = "devin-byok-bridge.autoStartProxy";
+const KEY_AUTO_START_PROXY = "devin-byok-plus.autoStartProxy";
 const LEGACY_KEY_AUTO_START_PROXY = "windsurf-byok-bridge.autoStartProxy";
-const KEY_PATCH_EXTENSION_PATH = "devin-byok-bridge.patchExtensionPath";
+const LEGACY_KEY_AUTO_START_PROXY_2 = "devin-byok-bridge.autoStartProxy";
+const KEY_PATCH_EXTENSION_PATH = "devin-byok-plus.patchExtensionPath";
 const LEGACY_KEY_PATCH_EXTENSION_PATH = "windsurf-byok-bridge.patchExtensionPath";
+const LEGACY_KEY_PATCH_EXTENSION_PATH_2 = "devin-byok-bridge.patchExtensionPath";
 const DEFAULT_SYSTEM_PROMPT = ["You are Devin Local, Devin Desktop's software engineering assistant.", "Help the user solve coding tasks through implementation, debugging, code review, and repository-aware reasoning.", "Prioritize correctness, low-risk changes, and forward progress."].join("\n");
 const tmp0 = {
   id: "default",
@@ -272,6 +274,12 @@ class SidebarProvider {
   }
   getStoredPatchExtensionPath() {
     let tmp02 = this.context.globalState.get(KEY_PATCH_EXTENSION_PATH);
+    if (!tmp02) {
+      tmp02 = this.context.globalState.get(LEGACY_KEY_PATCH_EXTENSION_PATH_2);
+      if (tmp02) {
+        this.context.globalState.update(KEY_PATCH_EXTENSION_PATH, tmp02);
+      }
+    }
     if (!tmp02) {
       tmp02 = this.context.globalState.get(LEGACY_KEY_PATCH_EXTENSION_PATH);
       if (tmp02) {
@@ -1337,7 +1345,7 @@ class SidebarProvider {
     if (tmp02 !== "安全清理缓存") {
       return;
     }
-    const tmp1 = path.join(os.tmpdir(), "devin-byok-bridge-clear-cache-" + Date.now() + (process.platform === "win32" ? ".cmd" : ".sh"));
+    const tmp1 = path.join(os.tmpdir(), "devin-byok-plus-clear-cache-" + Date.now() + (process.platform === "win32" ? ".cmd" : ".sh"));
     if (process.platform === "win32") {
       fs.writeFileSync(tmp1, ["@echo off", "timeout /t 1 /nobreak >nul 2>&1", "taskkill /f /im Devin.exe >nul 2>&1", "taskkill /f /im Windsurf.exe >nul 2>&1", "taskkill /f /im language_server.exe >nul 2>&1", "taskkill /f /im codeium.exe >nul 2>&1", "taskkill /f /im Codeium.exe >nul 2>&1", "timeout /t 2 /nobreak >nul 2>&1", "echo 正在安全清除运行缓存...", "rd /s /q \"%APPDATA%\\Devin\\Cache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\Cache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Devin\\CachedData\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\CachedData\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Devin\\CachedExtensionVSIXs\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\CachedExtensionVSIXs\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Devin\\Code Cache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\Code Cache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Devin\\DawnCache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\DawnCache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Devin\\GPUCache\" >nul 2>&1", "rd /s /q \"%APPDATA%\\Windsurf\\GPUCache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Devin\\Cache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Windsurf\\Cache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Devin\\CachedData\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Windsurf\\CachedData\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Devin\\Code Cache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Windsurf\\Code Cache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Devin\\DawnCache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Windsurf\\DawnCache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Devin\\GPUCache\" >nul 2>&1", "rd /s /q \"%LOCALAPPDATA%\\Windsurf\\GPUCache\" >nul 2>&1", "rd /s /q \"%TEMP%\\codeium\" >nul 2>&1", "echo 运行缓存已清除完毕，Devin Desktop 历史记录已保留，请重新打开 Devin Desktop", "pause", ""].join("\r\n"), "utf-8");
     } else {

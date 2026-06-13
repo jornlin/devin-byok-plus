@@ -54,7 +54,6 @@ export function parseSSEChunk(arg0) {
   }
   return tmp1;
 }
-}
 
 export class AnthropicStreamProcessor {
     constructor(tmp0, tmp1, tmp2 = null) {

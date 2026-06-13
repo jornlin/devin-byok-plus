@@ -1,7 +1,7 @@
 {
-  "name": "devin-byok-bridge",
-  "displayName": "Devin BYOK Bridge",
-  "description": "Devin Desktop BYOK 桥接 — 本地 API Key，多模型路由（兼容旧版 Windsurf）",
+  "name": "devin-byok-plus",
+  "displayName": "Devin BYOK Plus",
+  "description": "Devin Desktop BYOK 增强版 — 多模型路由、双槽位、思考强度控制（兼容旧版 Windsurf）",
   "version": "2.0.2",
   "publisher": "jornlin",
   "license": "MIT",
@@ -20,11 +20,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jornlin/devin-byok-bridge.git"
+    "url": "https://github.com/jornlin/devin-byok-plus.git"
   },
-  "homepage": "https://github.com/jornlin/devin-byok-bridge",
+  "homepage": "https://github.com/jornlin/devin-byok-plus",
   "bugs": {
-    "url": "https://github.com/jornlin/devin-byok-bridge/issues"
+    "url": "https://github.com/jornlin/devin-byok-plus/issues"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -34,24 +34,24 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onView:devin-byok-bridge.sidebar"
+    "onView:devin-byok-plus.sidebar"
   ],
   "main": "./extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "devin-byok-bridge",
-          "title": "Devin BYOK Bridge",
+          "id": "devin-byok-plus",
+          "title": "Devin BYOK Plus",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "devin-byok-bridge": [
+      "devin-byok-plus": [
         {
           "type": "webview",
-          "id": "devin-byok-bridge.sidebar",
+          "id": "devin-byok-plus.sidebar",
           "name": "控制面板",
           "icon": "media/icon.svg"
         }
@@ -59,24 +59,24 @@
     },
     "commands": [
       {
-        "command": "devin-byok-bridge.startProxy",
-        "title": "Devin BYOK Bridge: 启动代理"
+        "command": "devin-byok-plus.startProxy",
+        "title": "Devin BYOK Plus: 启动代理"
       },
       {
-        "command": "devin-byok-bridge.stopProxy",
-        "title": "Devin BYOK Bridge: 停止代理"
+        "command": "devin-byok-plus.stopProxy",
+        "title": "Devin BYOK Plus: 停止代理"
       },
       {
-        "command": "devin-byok-bridge.applyPatch",
-        "title": "Devin BYOK Bridge: 安装补丁"
+        "command": "devin-byok-plus.applyPatch",
+        "title": "Devin BYOK Plus: 安装补丁"
       },
       {
-        "command": "devin-byok-bridge.revertPatch",
-        "title": "Devin BYOK Bridge: 还原补丁"
+        "command": "devin-byok-plus.revertPatch",
+        "title": "Devin BYOK Plus: 还原补丁"
       },
       {
-        "command": "devin-byok-bridge.reloadWorkbench",
-        "title": "Devin BYOK Bridge: 重载窗口（补丁生效）"
+        "command": "devin-byok-plus.reloadWorkbench",
+        "title": "Devin BYOK Plus: 重载窗口（补丁生效）"
       }
     ]
   }

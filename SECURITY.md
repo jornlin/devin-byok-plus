@@ -24,7 +24,7 @@
 
 推荐方式（按优先级）：
 
-1. [GitHub Security Advisories — Private vulnerability report](https://github.com/jornlin/devin-byok-bridge/security/advisories/new)
+1. [GitHub Security Advisories — Private vulnerability report](https://github.com/jornlin/devin-byok-plus/security/advisories/new)
 2. 若无法使用 Advisory，可开 Issue 并**仅描述复现步骤与影响**，附件中的日志须先脱敏
 
 我们会在合理时间内确认收到报告。由于本项目为社区维护、无 SLA，修复时间取决于严重程度与维护者可用性。

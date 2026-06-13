@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢关注 **Devin BYOK Bridge**（原名 Windsurf BYOK Bridge）。本项目 fork 自 [ycx932436/devin-byok-bridge](https://github.com/ycx932436/devin-byok-bridge)，在原有基础上进行功能扩展与持续维护。本文档说明如何安全地参与本仓库，**不涉及源码实现细节**。
+感谢关注 **Devin BYOK Plus**（原名 Windsurf BYOK Bridge / Devin BYOK Bridge）。本项目 fork 自 [ycx932436/devin-byok-bridge](https://github.com/ycx932436/devin-byok-bridge)，在原有基础上进行功能扩展与持续维护。本文档说明如何安全地参与本仓库，**不涉及源码实现细节**。
 
 ## 开始前请阅读
 
@@ -57,7 +57,7 @@
 
 ## 安全漏洞
 
-请通过 [GitHub Security Advisories](https://github.com/jornlin/devin-byok-bridge/security/advisories/new) 私下报告，不要公开利用细节。
+请通过 [GitHub Security Advisories](https://github.com/jornlin/devin-byok-plus/security/advisories/new) 私下报告，不要公开利用细节。
 
 以下通常**不在**本仓库受理范围内（见 SECURITY.md）：
 
