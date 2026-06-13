@@ -77,7 +77,11 @@ function requiresConfiguredDefaultModel(arg0) {
     return !getSlotModel(tmp2);
   }
   const tmp3 = tmp1 && !tmp1.startsWith("MODEL_") ? tmp1 : "";
-  return (MODEL_MAP[tmp1] || MODEL_MAP[tmp3]) === "__DEFAULT__";
+  const tmp4 = MODEL_MAP[tmp1] || MODEL_MAP[tmp3];
+  if (tmp4 === "__DEFAULT__") {
+    return !getDefaultModel();
+  }
+  return false;
 }
 function writeModelConfigError(arg0, arg1, arg2) {
   arg0.writeHead(200, streamHeaders());
@@ -843,6 +847,7 @@ function streamAnthropic(arg0, arg1, {
     arg02.setEncoding("utf8");
     let tmp1 = null;
     let tmp22 = false;
+    let isFirstChunk = true;
     tmp18.startHeartbeat();
     const fn = () => {
       if (tmp1) {
@@ -869,23 +874,25 @@ function streamAnthropic(arg0, arg1, {
           tmp18.safeWrite(wrapEnvelope(tmp04));
         }
       }
-      if (processor.isDone) {
+      if (processor.isDone && !tmp22) {
         tmp22 = true;
         fn();
-        tmp18.finalize("  ✅ Stream done (stop: " + processor.stopReason + ")");
       }
     }
     fn2();
     arg02.on("data", arg03 => {
-      if (tmp8) {
+      if (tmp8 && isFirstChunk) {
         tmp8.mark("first_upstream_chunk", "bytes=" + Buffer.byteLength(arg03));
+        isFirstChunk = false;
       }
       fn2();
       sseBuffer += arg03;
       const tmp110 = sseBuffer.split("\n\n");
       sseBuffer = tmp110.pop();
       for (const tmp02 of tmp110) {
-        processPart(tmp02);
+        if (tmp02.trim()) {
+          processPart(tmp02);
+        }
       }
     });
     arg02.on("end", () => {
@@ -893,6 +900,7 @@ function streamAnthropic(arg0, arg1, {
       fn();
       if (sseBuffer.trim()) {
         processPart(sseBuffer);
+        sseBuffer = "";
       }
       if (!processor.isDone && !arg1.writableEnded) {
         console.log("  ⚠️  Anthropic stream ended without message_stop — forcing stop");
@@ -903,8 +911,10 @@ function streamAnthropic(arg0, arg1, {
         for (const tmp03 of tmp02) {
           tmp18.safeWrite(wrapEnvelope(tmp03));
         }
+        tmp18.finalize("  ✅ Stream ended (forced stop)");
+      } else if (processor.isDone) {
+        tmp18.finalize("  ✅ Stream ended normally");
       }
-      tmp18.finalize("  ✅ Stream ended");
     });
     arg02.on("aborted", () => {
       tmp22 = true;
