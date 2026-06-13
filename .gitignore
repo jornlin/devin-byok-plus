@@ -10,6 +10,7 @@ proxy-scripts/.env
 dist/
 build/*.vsix
 *.vsix
+proxy-scripts/src/
 
 # 操作系统文件
 .DS_Store
