@@ -1,0 +1,9 @@
+{
+  "version": "2.0.3",
+  "changeType": "Fixed",
+  "changes": [
+    "修复代理服务器启动失败的问题",
+    "优化错误处理逻辑"
+  ],
+  "autoPackage": true
+}

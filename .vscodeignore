@@ -1,9 +1,47 @@
+# 开发工具和配置
 .vscode/**
+.vscode-test/**
+.idea/**
+.git/**
+.gitignore
+.claude/**
+
+# 源代码(仅保留构建产物)
+src/**
+!src/extension.js
+!src/**/*.js
+
+# 构建输出(保留 dist,排除 build 中的 .vsix)
+build/*.vsix
+
+# 依赖
 node_modules/**
-**/.DS_Store
-**/.env
-proxy-scripts/node_modules/**
+
+# 测试和开发文件
+test/**
 _deob_test/
 **/captures/**
+
+# 临时文件
+**/.DS_Store
+**/.env
+*.log
+
+# 开发脚本和文档
+scripts/**
+package.sh
+docs/**
+
+# 证书和调试文件（proxy-scripts 目录保留，但排除敏感文件）
 proxy-scripts/certs/
 proxy-scripts/debug/
+proxy-scripts/node_modules/
+
+# 保留以下文件：
+# - README.md
+# - LICENSE.txt
+# - CHANGELOG.md
+# - package.json
+# - src/extension.js 及所有 src 下的 .js 文件
+# - resources/**
+# - proxy-scripts/** (除了 certs/ debug/ node_modules/)

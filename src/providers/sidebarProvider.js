@@ -47,18 +47,16 @@ const net = require("net");
 const crypto = require("crypto");
 const os = require("os");
 const child_process_1 = require("child_process");
-const patchManager_1 = require("./patchManager");
-const reloadWorkbench_1 = require("./reloadWorkbench");
-const thinkingEffort_1 = require("./thinkingEffort");
-const externalConfigImporter_1 = require("./externalConfigImporter");
-const sidebarHtml_1 = require("./sidebarHtml");
-const gatewayUrl_1 = require("./gatewayUrl");
+const patchManager_1 = require("../managers/patchManager");
+const reloadWorkbench_1 = require("../utils/reloadWorkbench");
+const thinkingEffort_1 = require("../services/thinkingEffort");
+const externalConfigImporter_1 = require("../services/externalConfigImporter");
+const sidebarHtml_1 = require("../views/sidebarHtml");
+const gatewayUrl_1 = require("../utils/gatewayUrl");
 const KEY_AUTO_START_PROXY = "devin-byok-plus.autoStartProxy";
-const LEGACY_KEY_AUTO_START_PROXY = "windsurf-byok-bridge.autoStartProxy";
-const LEGACY_KEY_AUTO_START_PROXY_2 = "devin-byok-bridge.autoStartProxy";
 const KEY_PATCH_EXTENSION_PATH = "devin-byok-plus.patchExtensionPath";
-const LEGACY_KEY_PATCH_EXTENSION_PATH = "windsurf-byok-bridge.patchExtensionPath";
-const LEGACY_KEY_PATCH_EXTENSION_PATH_2 = "devin-byok-bridge.patchExtensionPath";
+const LEGACY_KEY_PATCH_EXTENSION_PATH = "windsurf-byok-plus.patchExtensionPath";
+const LEGACY_KEY_PATCH_EXTENSION_PATH_2 = "devin-byok-plus.patchExtensionPath";
 const DEFAULT_SYSTEM_PROMPT = ["You are Devin Local, Devin Desktop's software engineering assistant.", "Help the user solve coding tasks through implementation, debugging, code review, and repository-aware reasoning.", "Prioritize correctness, low-risk changes, and forward progress."].join("\n");
 const tmp0 = {
   id: "default",
@@ -1957,7 +1955,7 @@ class SidebarProvider {
     const tmp9 = tmp2.SYSTEM_PROMPT_OVERRIDE === "true";
     const tmp10 = getWebviewNonce();
     const tmp11 = this.view?.webview.cspSource ?? "";
-    const tmp12 = this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "sidebar.js"));
+    const tmp12 = this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "resources", "webviews", "sidebar.js"));
     const tmp13 = "var(--vscode-button-background,#0d9488)";
     const tmp14 = "var(--vscode-button-hoverBackground,#0f766e)";
     const tmp15 = "var(--vscode-textLink-foreground,#5eead4)";

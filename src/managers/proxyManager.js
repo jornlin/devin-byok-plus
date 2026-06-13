@@ -11,21 +11,23 @@ const fs = require("fs");
 const net = require("net");
 const http = require("http");
 const http2 = require("http2");
-const KEY_HTTP_PROXY_BACKUP = "devin-byok-bridge.httpProxyBackup";
+
+// 引入新的辅助模块
+const proxyConfig = require("./proxy-config");
+const proxyProcess = require("./proxy-process");
+const proxyPaths = require("./proxy-paths");
+
+const KEY_HTTP_PROXY_BACKUP = "devin-byok-plus.httpProxyBackup";
 class ProxyManager {
+  // 使用 proxy-config 模块的方法
   parsePort(tmp0, tmp1) {
-    const tmp2 = Number.parseInt(String(tmp0 || ""), 10);
-    if (Number.isInteger(tmp2) && tmp2 > 0 && tmp2 <= 65535) {
-      return tmp2;
-    } else {
-      return tmp1;
-    }
+    return proxyConfig.parsePort(tmp0, tmp1);
   }
   getHybridPort(tmp0) {
-    return this.parsePort(tmp0?.HYBRID_PORT, 3006);
+    return proxyConfig.getHybridPort(tmp0);
   }
   getInferencePort(tmp0) {
-    return this.parsePort(tmp0?.INFERENCE_PORT, 3001);
+    return proxyConfig.getInferencePort(tmp0);
   }
   async ensureDevinDesktopHttpProxySettings(tmp0) {
     await this.restoreDevinDesktopHttpProxySettings();
@@ -47,10 +49,7 @@ class ProxyManager {
     this.log("已恢复 Devin Desktop HTTP 代理设置");
   }
   portsFromConfig(tmp0) {
-    return {
-      hybridPort: this.getHybridPort(tmp0),
-      inferencePort: this.getInferencePort(tmp0)
-    };
+    return proxyConfig.portsFromConfig(tmp0);
   }
   constructor(tmp0, tmp1 = "", tmp2 = "0.0.0") {
     this.context = tmp0;
@@ -66,10 +65,10 @@ class ProxyManager {
     this.lastStartWarning = "";
     this.deviceId = tmp1;
     this.clientVersion = tmp2;
-    this.proxyRoot = this.findProxyRoot();
-    this.migrateUserConfigIfNeeded();
+    this.proxyRoot = proxyPaths.findProxyRoot(tmp0.extensionPath);
+    proxyPaths.migrateUserConfigIfNeeded(this.proxyRoot);
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.statusBar.command = "devin-byok-bridge.startProxy";
+    this.statusBar.command = "devin-byok-plus.startProxy";
     this.updateStatusBar();
     this.statusBar.show();
     tmp0.subscriptions.push(this.statusBar);
@@ -80,78 +79,32 @@ class ProxyManager {
     const tmp1 = this.getHybridPort(tmp0);
     if (this.hybridProcess || this.externalProxy) {
       const tmp02 = this.externalProxy ? "(共享)" : "";
-      this.statusBar.text = "$(cloud) BYOK Bridge: 运行中" + tmp02;
+      this.statusBar.text = "$(cloud) BYOK plus: 运行中" + tmp02;
       this.statusBar.tooltip = this.externalProxy ? "代理运行中 | 端口 " + tmp1 + " | 来自其他窗口" : "Port " + tmp1 + " | PID " + this.hybridProcess?.pid + " | " + this.requestCount + " 请求";
-      this.statusBar.command = "devin-byok-bridge.stopProxy";
+      this.statusBar.command = "devin-byok-plus.stopProxy";
     } else {
-      this.statusBar.text = "$(cloud) BYOK Bridge: 已停止";
+      this.statusBar.text = "$(cloud) BYOK plus: 已停止";
       this.statusBar.tooltip = "点击启动代理 (Port " + tmp1 + ")";
-      this.statusBar.command = "devin-byok-bridge.startProxy";
+      this.statusBar.command = "devin-byok-plus.startProxy";
     }
   }
   findProxyRoot() {
-    const tmp0 = this.context.extensionPath;
-    const tmp1 = path.dirname(tmp0);
-    if (fs.existsSync(path.join(tmp1, "src", "hybrid-server.js"))) {
-      return tmp1;
-    }
-    const tmp2 = this.getBundledProxyRoot();
-    if (tmp2) {
-      return tmp2;
-    }
-    const tmp3 = this.findWorkspaceProxyRoot();
-    if (tmp3) {
-      return tmp3;
-    }
-    return tmp0;
+    return proxyPaths.findProxyRoot(this.context.extensionPath);
   }
   findWorkspaceProxyRoot() {
-    for (const tmp0 of vscode.workspace.workspaceFolders || []) {
-      const tmp02 = path.join(tmp0.uri.fsPath, "src", "hybrid-server.js");
-      if (fs.existsSync(tmp02)) {
-        return tmp0.uri.fsPath;
-      }
-      const tmp1 = path.join(tmp0.uri.fsPath, "proxy-scripts", "src", "hybrid-server.js");
-      if (fs.existsSync(tmp1)) {
-        return path.join(tmp0.uri.fsPath, "proxy-scripts");
-      }
-      for (const tmp03 of ["devin-byok-bridge", "windsurf-byok-bridge", "windsurf-proxy"]) {
-        const tmp04 = path.join(tmp0.uri.fsPath, tmp03, "proxy-scripts", "src", "hybrid-server.js");
-        if (fs.existsSync(tmp04)) {
-          return path.join(tmp0.uri.fsPath, tmp03, "proxy-scripts");
-        }
-        const tmp12 = path.join(tmp0.uri.fsPath, tmp03, "src", "hybrid-server.js");
-        if (fs.existsSync(tmp12)) {
-          return path.join(tmp0.uri.fsPath, tmp03);
-        }
-      }
-    }
-    return undefined;
+    return proxyPaths.findWorkspaceProxyRoot();
   }
   getBundledProxyRoot() {
-    const tmp0 = this.context.extensionPath;
-    const tmp1 = path.join(tmp0, "proxy-scripts", "src", "hybrid-server.js");
-    if (fs.existsSync(tmp1)) {
-      return path.join(tmp0, "proxy-scripts");
-    }
-    return undefined;
+    return proxyPaths.getBundledProxyRoot(this.context.extensionPath);
   }
   usesPersistentUserConfig() {
-    const tmp0 = this.getBundledProxyRoot();
-    return tmp0 !== undefined && this.proxyRoot === tmp0;
+    return proxyPaths.usesPersistentUserConfig();
   }
   getUserConfigDir() {
-    return path.join(this.context.globalStorageUri.fsPath, "config");
+    return proxyPaths.getUserConfigDir();
   }
   ensureUserConfigDir() {
-    const tmp0 = this.getUserConfigDir();
-    fs.mkdirSync(tmp0, {
-      recursive: true
-    });
-    fs.mkdirSync(path.join(tmp0, "prompts"), {
-      recursive: true
-    });
-    return tmp0;
+    return proxyPaths.ensureUserConfigDir();
   }
   getDefaultSystemPromptFilePath() {
     if (this.usesPersistentUserConfig()) {
@@ -177,7 +130,7 @@ class ProxyManager {
     try {
       const tmp3 = path.dirname(this.context.extensionPath);
       for (const tmp02 of fs.readdirSync(tmp3)) {
-        if (!/devin-byok-bridge|windsurf-byok-bridge/i.test(tmp02)) {
+        if (!/devin-byok-plus|windsurf-byok-plus/i.test(tmp02)) {
           continue;
         }
         if (path.join(tmp3, tmp02) === this.context.extensionPath) {
@@ -212,7 +165,7 @@ class ProxyManager {
     try {
       const tmp3 = path.dirname(this.context.extensionPath);
       for (const tmp02 of fs.readdirSync(tmp3)) {
-        if (!/devin-byok-bridge|windsurf-byok-bridge/i.test(tmp02)) {
+        if (!/devin-byok-plus|windsurf-byok-plus/i.test(tmp02)) {
           continue;
         }
         if (path.join(tmp3, tmp02) === this.context.extensionPath) {
@@ -450,47 +403,27 @@ class ProxyManager {
     return false;
   }
   getEnvFilePath() {
-    if (this.usesPersistentUserConfig()) {
-      return path.join(this.getUserConfigDir(), ".env");
-    }
-    return path.join(this.proxyRoot, ".env");
+    return proxyPaths.getEnvFilePath(this.proxyRoot);
   }
   getProxyRootPath() {
     return this.proxyRoot;
   }
   readEnvConfig() {
     const tmp0 = this.getEnvFilePath();
-    const tmp1 = {};
-    if (!fs.existsSync(tmp0)) {
-      return tmp1;
-    }
-    const tmp2 = fs.readFileSync(tmp0, "utf-8").split("\n");
-    for (const tmp02 of tmp2) {
-      const tmp03 = tmp02.trim();
-      if (!tmp03 || tmp03.startsWith("#")) {
-        continue;
-      }
-      const tmp12 = tmp03.indexOf("=");
-      if (tmp12 <= 0) {
-        continue;
-      }
-      const tmp22 = tmp03.slice(0, tmp12).trim();
-      const tmp3 = tmp03.slice(tmp12 + 1).trim();
-      tmp1[tmp22] = tmp3;
-    }
-    if (tmp1.SYSTEM_PROMPT_PATH !== undefined) {
-      tmp1.SYSTEM_PROMPT_PATH = this.getSystemPromptConfigPath(tmp1);
+    const config = proxyConfig.readEnvConfig(tmp0);
+    if (config.SYSTEM_PROMPT_PATH !== undefined) {
+      config.SYSTEM_PROMPT_PATH = this.getSystemPromptConfigPath(config);
     }
     const _legacy = String.fromCharCode(90, 87, 72, 95);
-    for (const _k of Object.keys(tmp1)) {
+    for (const _k of Object.keys(config)) {
       if (_k.startsWith(_legacy)) {
-        delete tmp1[_k];
+        delete config[_k];
       }
     }
-    return tmp1;
+    return config;
   }
   stripProtocol(tmp0) {
-    return tmp0.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    return proxyConfig.stripProtocol(tmp0);
   }
   normalizeSystemPromptPathValue(tmp0) {
     const tmp1 = tmp0.trim();
@@ -521,23 +454,13 @@ class ProxyManager {
     return tmp1;
   }
   getCompletionTimeoutMs(tmp0) {
-    const tmp1 = Number.parseInt(String(tmp0.COMPLETION_TIMEOUT_MS || ""), 10);
-    if (!Number.isInteger(tmp1) || tmp1 < 2000) {
-      return 12000;
-    }
-    return Math.min(tmp1, 60000);
+    return proxyConfig.getCompletionTimeoutMs(tmp0);
   }
   getSystemPromptConfigPath(tmp0) {
-    const tmp1 = (tmp0?.SYSTEM_PROMPT_PATH || "").trim();
-    return this.normalizeSystemPromptPathValue(tmp1);
+    return proxyConfig.getSystemPromptConfigPath(tmp0);
   }
   getResolvedSystemPromptPath(tmp0) {
-    const tmp1 = this.getSystemPromptConfigPath(tmp0);
-    if (path.isAbsolute(tmp1)) {
-      return tmp1;
-    }
-    const tmp2 = this.usesPersistentUserConfig() ? this.getUserConfigDir() : this.proxyRoot;
-    return path.normalize(path.join(tmp2, tmp1));
+    return proxyConfig.getResolvedSystemPromptPath(tmp0);
   }
   resolveEnvForProxySpawn(tmp0) {
     const tmp1 = {

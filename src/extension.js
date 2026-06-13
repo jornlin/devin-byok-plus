@@ -1,16 +1,16 @@
 'use strict';
 
 const vscode = require('vscode');
-const { SidebarProvider } = require('./sidebarProvider');
-const { ProxyManager } = require('./proxyManager');
-const { PatchManager } = require('./patchManager');
-const { reloadWorkbenchWindow } = require('./reloadWorkbench');
-const { getDeviceId, getClientVersion } = require('./integrity');
+const { SidebarProvider } = require('./providers/sidebarProvider');
+const { ProxyManager } = require('./managers/proxyManager');
+const { PatchManager } = require('./managers/patchManager');
+const { reloadWorkbenchWindow } = require('./utils/reloadWorkbench');
+const { getDeviceId, getClientVersion } = require('./utils/integrity');
 
 let proxyManager;
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
-const LEGACY_KEY_AUTO_START_PROXY = 'windsurf-byok-bridge.autoStartProxy';
-const LEGACY_KEY_AUTO_START_PROXY_2 = 'devin-byok-bridge.autoStartProxy';
+const LEGACY_KEY_AUTO_START_PROXY = 'windsurf-byok-plus.autoStartProxy';
+const LEGACY_KEY_AUTO_START_PROXY_2 = 'devin-byok-plus.autoStartProxy';
 
 function activate(context) {
   const extensionPath = context.extensionPath;

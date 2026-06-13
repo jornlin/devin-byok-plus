@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/*.vsix": true,
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/*.vsix": true,
+    "**/.DS_Store": true
+  }
+}
