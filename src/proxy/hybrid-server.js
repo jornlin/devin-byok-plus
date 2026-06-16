@@ -282,7 +282,12 @@ function handleRequest(arg0, arg1) {
     }
     if (arg0.url.startsWith("/api/config")) {
       console.log("[" + now() + "] #" + tmp2 + " ⚙️  /api/config (" + arg0.method + ")");
-      safeHandle(() => handleConfigRequest(arg0, arg1, tmp02), arg0, arg1, tmp2, "Config");
+      // ✅ 关键改进：对于 POST 请求，传递预缓冲的请求体
+      if (arg0.method === "POST") {
+        safeHandle(() => handleConfigRequest(arg0, arg1, tmp02), arg0, arg1, tmp2, "Config");
+      } else {
+        safeHandle(() => handleConfigRequest(arg0, arg1), arg0, arg1, tmp2, "Config");
+      }
       return;
     }
     if (arg0.url === "/" || arg0.url === "/index.html") {

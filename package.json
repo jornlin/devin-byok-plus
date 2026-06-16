@@ -2,7 +2,7 @@
   "name": "devin-byok-plus",
   "displayName": "Devin BYOK Plus",
   "description": "Devin Desktop BYOK 增强版 — 多模型路由、双槽位、思考强度控制（兼容旧版 Windsurf）",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "publisher": "jornlin",
   "license": "MIT",
   "author": {

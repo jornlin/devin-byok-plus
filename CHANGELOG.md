@@ -5,6 +5,23 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.0.4] - 2026-06-16
+
+### Fixed
+- 修复配置热重载 Bug：解决 POST 请求超时问题，支持预缓冲请求体
+- 增强默认模型验证：提前拦截未配置模型的请求，避免无效 API 调用
+- 修复前端 JavaScript 智能引号导致的语法错误
+
+### Added
+- 实现静默自动保存功能：配置变更后自动保存（650ms 防抖），提升用户体验
+- 新增 7 个单元测试，覆盖配置热重载和模型验证关键路径
+- 代码质量提升：提取 `authorizeConfigPost()` 和 `applyConfigPostBody()` 函数，实现关注点分离
+
+### Changed
+- 改进错误消息：提供更清晰的配置指引（英文版）
+- 优化配置更新流程：支持预缓冲和流式两种请求体处理方式
+- 完善函数导出：`requiresConfiguredDefaultModel()` 现在可供外部测试使用
+
 ## [2.0.3] - 2026-06-13
 
 ### Fixed

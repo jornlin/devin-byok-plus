@@ -15,6 +15,7 @@ import { buildGatewayCapabilityKey, getGatewayCapability, markGatewayCapability 
 import { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
 import { isRetriableError, calculateRetryDelay, isTimeoutError, serviceCircuitBreakers } from "../retry-utils.js";
 export { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
+export { requiresConfiguredDefaultModel };
 const keepAliveAgent = new https.Agent({
   keepAlive: true,
   keepAliveMsecs: 30000,
@@ -71,18 +72,26 @@ function resolveConfiguredModel(arg0) {
   }
   return ANTHROPIC_FALLBACK_MODEL;
 }
+/**
+ * 检测模型是否需要配置默认值
+ * @param {string} modelName - 模型名称
+ * @returns {boolean} - 是否缺少必需的配置
+ */
 function requiresConfiguredDefaultModel(arg0) {
   const tmp1 = String(arg0 || "").trim();
   const tmp2 = getByokSlot(tmp1);
+
+  // BYOK 槽位模型检查
   if (tmp2) {
     return !getSlotModel(tmp2);
   }
+
+  // 实际模型名（非 MODEL_* 常量）
   const tmp3 = tmp1 && !tmp1.startsWith("MODEL_") ? tmp1 : "";
+
+  // 检查是否映射到 __DEFAULT__
   const tmp4 = MODEL_MAP[tmp1] || MODEL_MAP[tmp3];
-  if (tmp4 === "__DEFAULT__") {
-    return !getDefaultModel();
-  }
-  return false;
+  return tmp4 === "__DEFAULT__" && !getDefaultModel();
 }
 function writeModelConfigError(arg0, arg1, arg2) {
   arg0.writeHead(200, streamHeaders());
@@ -276,9 +285,17 @@ export function handleGetChatMessage(arg0, arg1, arg2) {
   } = parseGetChatMessageRequest(arg2, arg0.headers);
   const tmp9 = crypto.randomUUID();
   const tmp10 = getByokSlot(tmp7);
+
+  // ✅ 提前验证模型配置
   if (requiresConfiguredDefaultModel(tmp7)) {
-    const tmp02 = tmp10 === 2 ? "未配置 BYOK #2（Thinking）。请在侧栏填写 API、加载并选择模型。" : tmp10 === 1 ? "未配置 BYOK #1（Opus 4 BYOK）。请在侧栏填写 API、加载并选择模型。" : "未选择默认模型。请先回到 Devin BYOK Bridge，点击“加载模型”并选择默认模型后再提问。";
-    console.error("  ❌ Missing model config for requested model " + (tmp7 || "unknown"));
+    let tmp02 = “Default model not configured. Please set DEFAULT_MODEL or BYOK1_MODEL in .env.”;
+    if (tmp10 === 2) {
+      tmp02 = “BYOK #2 model not configured. Please set BYOK2_MODEL in .env or configure via sidebar.”;
+    } else if (tmp10 === 1) {
+      tmp02 = “BYOK #1 model not configured. Please set BYOK1_MODEL or DEFAULT_MODEL in .env.”;
+    }
+
+    console.error(“  ❌ Model validation failed: “ + (tmp7 || “unknown”) + “ - “ + tmp02);
     writeModelConfigError(arg1, tmp9, tmp02);
     return;
   }

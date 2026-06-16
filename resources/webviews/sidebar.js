@@ -172,27 +172,6 @@
     gpt: [["", "关闭 · 不启用 reasoning"], ["low", "低 · reasoning.effort=low"], ["medium", "中 · reasoning.effort=medium"], ["high", "高 · reasoning.effort=high"], ["xhigh", "极高 · reasoning.effort=xhigh"]],
     gemini: [["", "默认 · medium（API 默认，不覆盖）"], ["minimal", "Minimal · 最低思考 / 最低延迟"], ["low", "Low · 速度优先"], ["medium", "Medium · 推荐平衡"], ["high", "High · 最深推理"]]
   };
-  const tmp21 = new Set(["cfgByok1Host", "cfgByok1Key", "cfgByok1Model", "cfgByok1ThinkingEffort", "cfgByok2Host", "cfgByok2Key", "cfgByok2Model", "cfgByok2ThinkingEffort", "cfgHybridPort", "cfgInferencePort", "cfgAnthropicPath", "cfgOpenaiPath", "cfgMaxTokens", "cfgCompletionTimeoutMs"]);
-  let tmp22 = null;
-  function fn20a(arg0) {
-    return !!(arg0 && arg0.id && tmp21.has(arg0.id));
-  }
-  function fn20b(arg0) {
-    clearTimeout(tmp22);
-    if (arg0) {
-      fn5("saveConfig", {
-        config: fn27(),
-        silent: true
-      });
-      return;
-    }
-    tmp22 = setTimeout(() => {
-      fn5("saveConfig", {
-        config: fn27(),
-        silent: true
-      });
-    }, 650);
-  }
   function fn16(arg0) {
     if (arg0 === "gpt") {
       return "GPT · reasoning.effort";
@@ -627,7 +606,7 @@
       tmp32.textContent = String(arg0.requestCount || 0);
     }
     if (tmp4) {
-      const tmp02 = (arg0.running ? "<button type=\"button\" class=\"btn btn-d\" data-ws-action=\"stopProxy\">停止代理</button>" : "<button type=\"button\" class=\"btn btn-p\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>") + "<button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"maintenanceTools\">维护工具</button>";
+      const tmp02 = (arg0.running ? "<button type=\"button\" class=\"btn btn-d\" data-ws-action=\"stopProxy\">停止代理</button>" : "<button type=\"button\" class=\"btn btn-p\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>") + "<button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"saveConfig\">仅保存配置</button><button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"maintenanceTools\">维护工具</button>";
       if (tmp4.innerHTML !== tmp02) {
         tmp4.innerHTML = tmp02;
       }
@@ -642,25 +621,8 @@
     const tmp32 = tmp22.classList.toggle("hidden");
     arg0.classList.toggle("collapsed", tmp32);
   }
-  function switchTab(tabId) {
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
-    });
-    document.querySelectorAll(".tab-content").forEach(content => {
-      content.classList.toggle("active", content.id === tabId);
-    });
-    tmp3.activeTab = tabId;
-    tmp0.setState(tmp3);
-  }
   function tmp43() {}
   document.addEventListener("click", arg0 => {
-    const tabBtn = arg0.target && arg0.target.closest ? arg0.target.closest(".tab-btn") : null;
-    if (tabBtn) {
-      const tabId = tabBtn.getAttribute("data-tab");
-      switchTab(tabId);
-      arg0.preventDefault();
-      return;
-    }
     const tmp12 = arg0.target && arg0.target.closest ? arg0.target.closest("[data-ws-toggle]") : null;
     if (tmp12) {
       fn36(tmp12);
@@ -681,6 +643,11 @@
     } else if (tmp32 === "stopProxy") {
       fn7("proxy", "busy", "正在停止代理...");
       fn5("stopProxy");
+    } else if (tmp32 === "saveConfig") {
+      fn7("config", "busy", "正在保存配置...");
+      fn5("saveConfig", {
+        config: fn27()
+      });
     } else if (tmp32 === "maintenanceTools") {
       fn7("config", "busy", "请选择维护操作...");
       fn5("maintenanceTools");
@@ -792,29 +759,23 @@
       fn5("setAutoStartProxy", {
         value: tmp12.checked === true
       });
-    } else if (fn20a(tmp12)) {
-      if (tmp12.id === "cfgByok1Model" || tmp12.id === "cfgByok2Model" || tmp12.id === "cfgByok1ThinkingEffort" || tmp12.id === "cfgByok2ThinkingEffort") {
-        const tmp02 = /cfgByok2/.test(tmp12.id) ? 2 : 1;
-        if (tmp12.id.endsWith("Model")) {
-          tmp3["lastSelectedModel" + tmp02] = tmp12.value || "";
-          fn3(tmp02);
-        }
-        fn20();
-      } else if (tmp12.id === "cfgByok1Host" || tmp12.id === "cfgByok2Host") {
-        fn9("Base URL 已修改，请重新加载模型", tmp12.id === "cfgByok2Host" ? 2 : 1);
-      } else if (tmp12.id === "cfgByok1Key" || tmp12.id === "cfgByok2Key") {
-        fn9("API Key 已修改，请重新加载模型", tmp12.id === "cfgByok2Key" ? 2 : 1);
+    } else if (tmp12.id === "cfgByok1Model" || tmp12.id === "cfgByok2Model" || tmp12.id === "cfgByok1ThinkingEffort" || tmp12.id === "cfgByok2ThinkingEffort") {
+      const tmp02 = /cfgByok2/.test(tmp12.id) ? 2 : 1;
+      if (tmp12.id.endsWith("Model")) {
+        tmp3["lastSelectedModel" + tmp02] = tmp12.value || "";
+        fn3(tmp02);
       }
-      fn20b(true);
+      fn20();
+    } else if (tmp12.id === "cfgByok1Host" || tmp12.id === "cfgByok2Host") {
+      fn9("Base URL 已修改，请重新加载模型", tmp12.id === "cfgByok2Host" ? 2 : 1);
+    } else if (tmp12.id === "cfgByok1Key" || tmp12.id === "cfgByok2Key") {
+      fn9("API Key 已修改，请重新加载模型", tmp12.id === "cfgByok2Key" ? 2 : 1);
     }
   });
   document.addEventListener("input", arg0 => {
     const tmp12 = arg0.target;
     if (tmp12 && (tmp12.id === "cfgDefaultModelCustom" || /cfgByok[12]Model/.test(tmp12.id))) {
       fn20();
-    }
-    if (fn20a(tmp12)) {
-      fn20b(false);
     }
   });
   window.addEventListener("message", arg0 => {
@@ -896,6 +857,91 @@
     }
   });
   fn20();
-  const initialTab = tmp3.activeTab || "tab-config";
-  switchTab(initialTab);
+
+  // ========== 静默自动保存功能 ==========
+  // 配置字段白名单（需要自动保存的字段）
+  const AUTO_SAVE_FIELDS = new Set([
+    'cfgByok1Host', 'cfgByok1Key', 'cfgByok1Model', 'cfgByok1ThinkingEffort',
+    'cfgByok2Host', 'cfgByok2Key', 'cfgByok2Model', 'cfgByok2ThinkingEffort',
+    'cfgHybridPort', 'cfgInferencePort', 'cfgAnthropicPath', 'cfgOpenaiPath',
+    'cfgMaxTokens', 'cfgCompletionTimeoutMs'
+  ]);
+
+  let autoSaveTimer = null;
+
+  /**
+   * 调度自动保存
+   * @param {boolean} immediate - 是否立即保存
+   */
+  function scheduleAutoSave(immediate = false) {
+    clearTimeout(autoSaveTimer);
+
+    if (immediate) {
+      // 立即保存（用于 change 事件）
+      fn5('saveConfig', {
+        config: collectCurrentConfig(),
+        silent: true  // 静默保存标志
+      });
+      return;
+    }
+
+    // 防抖：650ms 后保存（用于 input 事件）
+    autoSaveTimer = setTimeout(() => {
+      fn5('saveConfig', {
+        config: collectCurrentConfig(),
+        silent: true
+      });
+    }, 650);
+  }
+
+  /**
+   * 判断是否为自动保存字段
+   */
+  function isAutoSaveField(element) {
+    return element && element.id && AUTO_SAVE_FIELDS.has(element.id);
+  }
+
+  /**
+   * 收集当前配置
+   */
+  function collectCurrentConfig() {
+    const config = {};
+
+    AUTO_SAVE_FIELDS.forEach(fieldId => {
+      const element = fn4(fieldId);
+      if (element) {
+        config[fieldId] = element.type === 'checkbox'
+          ? element.checked
+          : element.value;
+      }
+    });
+
+    return config;
+  }
+
+  // 注册自动保存事件监听器
+  document.addEventListener('DOMContentLoaded', () => {
+    // 监听所有输入字段
+    const inputs = document.querySelectorAll('input, select, textarea');
+
+    inputs.forEach(input => {
+      // input 事件：输入时防抖保存
+      input.addEventListener('input', (e) => {
+        if (isAutoSaveField(e.target)) {
+          scheduleAutoSave(false);
+        }
+      });
+
+      // change 事件：变更完成后立即保存
+      input.addEventListener('change', (e) => {
+        if (isAutoSaveField(e.target)) {
+          scheduleAutoSave(true);
+        }
+      });
+    });
+
+    console.log('✅ 自动保存已启用');
+  });
+  // ========== 自动保存功能结束 ==========
+
 })();
