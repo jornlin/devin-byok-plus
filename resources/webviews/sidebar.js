@@ -623,6 +623,15 @@
   }
   function tmp43() {}
   document.addEventListener("click", arg0 => {
+    // 标签页切换
+    const tabBtn = arg0.target && arg0.target.closest ? arg0.target.closest(".tab-btn") : null;
+    if (tabBtn) {
+      const tabId = tabBtn.getAttribute("data-tab");
+      switchTab(tabId);
+      arg0.preventDefault();
+      return;
+    }
+
     const tmp12 = arg0.target && arg0.target.closest ? arg0.target.closest("[data-ws-toggle]") : null;
     if (tmp12) {
       fn36(tmp12);
@@ -943,5 +952,22 @@
     console.log('✅ 自动保存已启用');
   });
   // ========== 自动保存功能结束 ==========
+
+  // ========== 标签页功能 ==========
+  function switchTab(tabId) {
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
+    });
+    document.querySelectorAll(".tab-content").forEach(content => {
+      content.classList.toggle("active", content.id === tabId);
+    });
+    tmp3.activeTab = tabId;
+    tmp0.setState(tmp3);
+  }
+
+  // 恢复上次选择的标签页
+  const initialTab = tmp3.activeTab || "tab-config";
+  switchTab(initialTab);
+  // ========== 标签页功能结束 ==========
 
 })();
