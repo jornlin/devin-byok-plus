@@ -1960,7 +1960,7 @@ class SidebarProvider {
     const tmp9 = tmp2.SYSTEM_PROMPT_OVERRIDE === "true";
     const tmp10 = getWebviewNonce();
     const tmp11 = this.view?.webview.cspSource ?? "";
-    const tmp12 = this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "resources", "webviews", "sidebar.js"));
+    const tmp12 = this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "sidebar.js"));
     const tmp13 = "var(--vscode-button-background,#0d9488)";
     const tmp14 = "var(--vscode-button-hoverBackground,#0f766e)";
     const tmp15 = "var(--vscode-textLink-foreground,#5eead4)";
@@ -1988,7 +1988,1034 @@ class SidebarProvider {
       const tmp110 = /→.*GetChatMessage|GetStreamingCompletions|GetEmbeddings/.test(arg0) ? " hi" : /err|stderr/i.test(arg0) ? " err" : "";
       return "<div class=\"log-line" + tmp110 + "\">" + esc(arg0) + "</div>";
     }).join("");
-    return "<!DOCTYPE html>\n<html lang=\"zh\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src " + tmp11 + " 'unsafe-inline'; img-src " + tmp11 + " https: data:; script-src 'nonce-" + tmp10 + "' " + tmp11 + ";\">\n<style>\n*{box-sizing:border-box;margin:0;padding:0}\nbody{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:" + tmp18 + ";color:" + tmp22 + ";padding:10px;font-size:12px;line-height:1.35;min-height:100vh;position:relative;overflow-x:hidden}\nbody::before,body::after{display:none}\n\n.card{background:" + tmp19 + ";border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid " + tmp21 + ";box-shadow:0 1px 2px rgba(0,0,0,.12)}\n.card-head{font-size:12px;font-weight:700;color:" + tmp23 + ";margin-bottom:8px;display:flex;align-items:center;gap:6px;min-height:22px}\n\n.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:0}\n.st{background:" + tmp20 + ";border-radius:8px;padding:6px 4px;text-align:center;border:1px solid " + tmp21 + "}\n.st b{display:block;font-size:14px;font-weight:700;color:" + tmp15 + ";line-height:1.1}\n.st small{font-size:9px;color:" + tmp16 + ";margin-top:2px;display:block}\n\n.btn{min-height:30px;padding:6px 12px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:800;transition:all .18s ease;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;letter-spacing:0}\n.btn:disabled{opacity:.5;cursor:not-allowed}\n.btn-p{background:" + tmp13 + ";color:var(--vscode-button-foreground,#fff);box-shadow:0 1px 0 rgba(255,255,255,.08) inset}.btn-p:hover{background:" + tmp14 + "}\n.btn-d{background:var(--vscode-errorForeground,#ef4444);color:#fff}.btn-d:hover{filter:brightness(.92)}\n.btn-s{background:var(--vscode-button-secondaryBackground," + tmp20 + ");color:var(--vscode-button-secondaryForeground," + tmp22 + ");border:1px solid " + tmp21 + ";box-shadow:none}.btn-s:hover{background:var(--vscode-button-secondaryHoverBackground," + tmp20 + ");color:var(--vscode-button-secondaryForeground," + tmp22 + ")}\n.sm{min-height:22px;padding:3px 8px;font-size:10px;border-radius:6px}\n.btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}\n\n.fg{margin-bottom:7px}\n.fg label{display:block;font-size:10px;color:" + tmp16 + ";margin-bottom:3px;font-weight:600}\ninput[type=\"text\"],input[type=\"email\"],input[type=\"password\"],input[type=\"number\"],select{width:100%;height:38px;padding:8px 11px;border:1px solid var(--vscode-input-border," + tmp21 + ");border-radius:8px;font-size:12px;background:" + tmp20 + ";color:" + tmp23 + ";font-family:" + tmp24 + ";box-shadow:none;transition:all .18s ease}\ninput:focus,select:focus{outline:none;border-color:var(--vscode-focusBorder," + tmp13 + ");box-shadow:0 0 0 1px var(--vscode-focusBorder," + tmp13 + ")}\n.login-grid{display:grid;grid-template-columns:1fr;gap:9px}\n.login-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}\n.login-tab{min-height:28px}\n.login-pane.hidden{display:none!important}\n.remember-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:10px;color:" + tmp16 + ";line-height:1.3;padding:1px 2px 3px}\n.remember-row label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}\n.remember-row input{accent-color:" + tmp13 + ";width:14px;height:14px}\n.inline-form{display:flex;gap:5px;align-items:center}.inline-form input{min-width:0;flex:1}\n\n/* ── Badge ── */\n.badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;line-height:1.3}\n.badge-ok{background:#064e3b;color:#34d399}\n.badge-warn{background:#451a03;color:#fbbf24}\n\n/* ── Toggle ── */\n.tog{position:relative;width:32px;height:18px;flex-shrink:0}\n.tog input{opacity:0;width:0;height:0}\n.tog span{position:absolute;cursor:pointer;inset:0;background:#3f3f46;border-radius:20px;transition:all .2s}\n.tog span::before{content:'';position:absolute;width:12px;height:12px;left:3px;bottom:3px;background:" + tmp16 + ";border-radius:50%;transition:all .2s}\n.tog input:checked+span{background:" + tmp13 + "}\n.tog input:checked+span::before{transform:translateX(14px);background:#fff}\n\n/* ── Log ── */\n.log-box{background:" + tmp20 + ";border:1px solid " + tmp21 + ";border-radius:7px;padding:7px;max-height:160px;overflow-y:auto;font-family:" + tmp24 + ";font-size:10px;line-height:1.45;color:" + tmp16 + "}\n.log-line{white-space:pre-wrap;word-break:break-all}\n.log-line.hi{color:" + tmp15 + "}.log-line.err{color:#f87171}.log-line.dim{color:#3f3f46}\n\n/* ── Action feedback ── */\n.action-state{margin-top:7px;padding:7px 8px;border-radius:7px;background:" + tmp20 + ";border:1px solid " + tmp21 + "}\n.action-text{font-size:10px;color:#a1a1aa;margin-bottom:4px;line-height:1.45;white-space:pre-wrap;word-break:break-word}\n.action-progress{height:3px;background:#1e1e3a;border-radius:999px;overflow:hidden}\n.action-progress-bar{width:35%;height:100%;background:" + tmp13 + ";border-radius:999px;animation:prog 1s ease-in-out infinite}\n.action-state.success .action-text{color:#34d399}\n.action-state.error .action-text{color:#f87171}\n.action-state.success .action-progress-bar,.action-state.error .action-progress-bar{width:100%;animation:none}\n@keyframes prog{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}\n\n/* ── Misc ── */\n.row{display:flex;align-items:center;gap:5px}\n.between{justify-content:space-between}\n.toggle-section{cursor:pointer;user-select:none}.toggle-section::after{content:'\\25BE';font-size:10px;margin-left:4px}.toggle-section.collapsed::after{content:'\\25B8'}\n.hidden{display:none!important}\n.info-strip{background:" + tmp19 + ";border:1px solid " + tmp21 + ";border-radius:10px;padding:9px 10px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px;box-shadow:0 1px 2px rgba(0,0,0,.1)}\n.info-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:" + tmp16 + "}\n.info-row b,.info-link{font-size:11px;color:" + tmp15 + ";font-family:" + tmp24 + ";letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.info-link{background:none;border:none;padding:0;cursor:pointer;max-width:100%;text-align:right}\n.info-link:hover{text-decoration:underline;color:" + tmp15 + "}\n.info-actions{display:flex;gap:5px;margin-top:2px}.info-actions .btn{flex:1}\n.login-card{position:relative;overflow:hidden;padding:14px;border-color:var(--vscode-focusBorder," + tmp21 + ");background:" + tmp19 + ";box-shadow:0 1px 2px rgba(0,0,0,.12)}\n.login-card::before,.login-card::after{display:none}\n@keyframes shine{0%,100%{transform:none}}\n.login-hero{position:relative;margin-bottom:13px;z-index:1}\n.login-kicker{display:inline-flex;align-items:center;gap:6px;margin-bottom:7px;padding:3px 8px;border-radius:999px;background:" + tmp20 + ";border:1px solid " + tmp21 + ";color:" + tmp15 + ";font-size:9px;font-weight:800;letter-spacing:0;text-transform:uppercase}\n.login-kicker::before{content:'';width:5px;height:5px;border-radius:999px;background:" + tmp15 + "}\n.login-title{font-size:20px;font-weight:900;color:" + tmp23 + ";margin-bottom:4px;letter-spacing:0;text-shadow:none}\n.login-subtitle{font-size:10px;color:" + tmp16 + ";line-height:1.55;max-width:28em}\n.login-hint{font-size:10px;color:" + tmp16 + ";line-height:1.55;margin-top:9px;position:relative;z-index:1}\n.login-actions{position:relative;z-index:1;display:flex;gap:7px;margin-top:9px}\n.login-actions .btn{flex:1}\n.login-submit{height:40px;margin-top:2px;font-size:13px}\n.account-card{border-color:var(--vscode-focusBorder," + tmp21 + ");background:linear-gradient(135deg,color-mix(in srgb,var(--vscode-button-background,#0d9488) 10%," + tmp19 + ")," + tmp19 + ")}\n.account{display:flex;align-items:center;justify-content:space-between;gap:8px}\n.account-main{min-width:0;display:flex;align-items:center;gap:8px}\n.account-dot{width:9px;height:9px;border-radius:999px;background:var(--vscode-testing-iconPassed,#34d399);box-shadow:0 0 0 3px color-mix(in srgb,var(--vscode-testing-iconPassed,#34d399) 16%,transparent);flex:none}\n.account-meta{min-width:0}\n.account-name{font-size:13px;font-weight:800;color:" + tmp23 + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.account-sub{font-size:10px;color:" + tmp16 + ";margin-top:2px}\n.account-state{font-size:10px;color:" + tmp15 + ";font-weight:700;margin-bottom:2px}\n.login-steps li{margin-bottom:1px}\n.instance-entry{width:100%;justify-content:space-between;min-height:34px}\n.instance-entry small{font-size:10px;color:" + tmp16 + ";font-weight:500}\n.instance-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}\n.instance-panel-title{font-size:13px;font-weight:800;color:" + tmp23 + "}\n.instance-list{display:flex;flex-direction:column;gap:5px;margin-top:7px;max-height:calc(100vh - 145px);overflow-y:auto;padding-right:2px}\n.instance-card{background:" + tmp20 + ";border:1px solid " + tmp21 + ";border-radius:8px;padding:7px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}\n.instance-main{min-width:0;display:flex;align-items:center;gap:6px}\n.instance-meta{min-width:0;display:flex;flex-direction:column;gap:1px}\n.instance-name{font-size:12px;font-weight:700;color:" + tmp23 + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.instance-sub{font-size:9px;color:" + tmp16 + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.instance-actions{display:flex;align-items:center;gap:4px}\n.empty-text{font-size:10px;color:" + tmp16 + ";line-height:1.45;padding:3px 0}\n.env-check{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}\n.env-check-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:" + tmp16 + "}\n.env-check-list{display:flex;flex-direction:column;gap:5px}\n.env-check-item{border:1px solid " + tmp21 + ";border-radius:8px;background:rgba(255,255,255,.035);padding:7px}\n.env-check-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:" + tmp23 + "}\n.env-check-detail{margin-top:4px;font-size:9px;color:" + tmp16 + ";line-height:1.35;word-break:break-all}\n.env-check-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}\n.env-check-probe{font-size:9px;color:" + tmp16 + ";line-height:1.35;word-break:break-all;margin-top:4px}\n.badge-error{background:#450a0a;color:#f87171}\n.patch-path{margin:0 0 8px;padding:6px 7px;border-radius:8px;background:rgba(255,255,255,.05);border:1px dashed rgba(94,234,212,.24);color:" + tmp16 + ";font-size:9px;line-height:1.35;word-break:break-all}\n.patch-path b{color:" + tmp15 + ";font-weight:700}\n.guide-body{display:flex;flex-direction:column;gap:8px;color:" + tmp16 + ";font-size:10px;line-height:1.55}\n.guide-block{border:1px solid " + tmp21 + ";border-radius:8px;background:rgba(255,255,255,.035);padding:8px}\n.guide-block b{display:block;color:" + tmp23 + ";font-size:11px;margin-bottom:5px}\n.guide-block ol,.guide-block ul{padding-left:18px;margin:0}\n.guide-block li{margin:3px 0}\n.guide-code{display:block;background:" + tmp20 + ";border:1px solid " + tmp21 + ";border-radius:6px;padding:5px 6px;margin-top:4px;color:" + tmp15 + ";font-family:" + tmp24 + ";font-size:9px;line-height:1.45;word-break:break-all}\n.guide-note{border-left:2px solid " + tmp13 + ";padding-left:7px;color:" + tmp16 + "}\n</style>\n</head>\n<body>\n\n<div class=\"card\">\n    <div class=\"card-head between\">\n        <span class=\"toggle-section collapsed\" data-ws-toggle=\"tutorialBody\">使用教程</span>\n        <span class=\"badge badge-ok\">内置</span>\n    </div>\n    <div id=\"tutorialBody\" class=\"guide-body hidden\">\n        <div class=\"guide-block\">\n            <b>快速使用</b>\n            <ol>\n                <li>分别为 BYOK #1 / #2 填写 Base URL、API Key，加载模型并选择模型；Claude/GPT 可设置思考强度。</li>\n                <li>配置完成后点击一键启动。</li>\n                <li>补丁就绪后重载窗口；Windsurf 里分别使用 <code>Claude Opus 4 BYOK</code> 与 <code>Claude Opus 4 Thinking BYOK</code>。</li>\n            </ol>\n        </div>\n        <div class=\"guide-block\">\n            <b>日常使用</b>\n            <ul>\n                <li>只换 API Key 或模型：改完后点仅保存配置。</li>\n                <li>聊天没有走代理：重新安装补丁并重载窗口。</li>\n                <li>模型列表加载失败：检查 API Key、余额、网络和日志错误。</li>\n            </ul>\n        </div>\n        <div class=\"guide-note\">BYOK #1 对应 Windsurf 的 <code>Claude Opus 4 BYOK</code>；BYOK #2 对应 <code>Claude Opus 4 Thinking BYOK</code>。两套 API / 模型完全独立。</div>\n    </div>\n</div>\n\n<div id=\"mainPanel\" class=\"\">\n<!-- 步骤 1: 配置 & 启动 -->\n<div class=\"card\">\n    <div class=\"card-head between\">\n        <span>① 配置 & 启动</span>\n        <span id=\"proxyRunBadge\" class=\"badge " + (tmp02.running ? "badge-ok" : "badge-warn") + "\">" + (tmp02.running ? "运行中" : "已停止") + "</span>\n    </div>\n    <div id=\"configBody\">\n        <div class=\"guide-block\" style=\"margin-bottom:10px\">\n            <b>BYOK #1 · Claude Opus 4 BYOK</b>\n            <div class=\"fg\"><label>Base URL（可选）</label><input type=\"text\" id=\"cfgByok1Host\" value=\"" + tmp25 + "\" placeholder=\"例如 api-a.example.com\"></div>\n            <div class=\"fg\"><label>API Key</label><input type=\"password\" id=\"cfgByok1Key\" value=\"" + tmp26 + "\" placeholder=\"BYOK #1 API Key\" autocomplete=\"off\"></div>\n            <div class=\"btns\" style=\"margin-bottom:6px\">\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"importExternalConfig\" data-ws-source=\"claude\" data-ws-slot=\"1\">导入 Claude 配置</button>\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"importExternalConfig\" data-ws-source=\"codex\" data-ws-slot=\"1\">导入 GPT 配置</button>\n            </div>\n            <div class=\"row\" style=\"gap:6px;margin-bottom:6px\">\n                <select id=\"cfgByok1Model\" style=\"flex:1;font-size:12px;padding:5px 8px\">" + (tmp27 ? "<option value=\"" + tmp27 + "\" selected>" + tmp27 + "</option>" : "<option value=\"\" disabled selected>请先加载模型</option>") + "</select>\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"fetchModels\" data-ws-slot=\"1\" style=\"padding:4px 8px\">加载模型</button>\n            </div>\n            <div class=\"fg\" id=\"cfgByok1ThinkingEffortRow\"><label id=\"cfgByok1ThinkingLabel\">" + esc(thinkingEffort_1.getThinkingIntensityHint(thinkingEffort_1.detectModelProvider(tmp27))) + "</label><select id=\"cfgByok1ThinkingEffort\">" + buildThinkingEffortOptions(tmp27, tmp31) + "</select></div>\n            <div id=\"modelFetchStatus1\" style=\"font-size:10px;color:" + tmp17 + "\"></div>\n        </div>\n        <div class=\"guide-block\" style=\"margin-bottom:10px\">\n            <b>BYOK #2 · Claude Opus 4 Thinking BYOK</b>\n            <div class=\"fg\"><label>Base URL（可选）</label><input type=\"text\" id=\"cfgByok2Host\" value=\"" + tmp28 + "\" placeholder=\"例如 api-b.example.com\"></div>\n            <div class=\"fg\"><label>API Key</label><input type=\"password\" id=\"cfgByok2Key\" value=\"" + tmp29 + "\" placeholder=\"BYOK #2 API Key\" autocomplete=\"off\"></div>\n            <div class=\"btns\" style=\"margin-bottom:6px\">\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"importExternalConfig\" data-ws-source=\"claude\" data-ws-slot=\"2\">导入 Claude 配置</button>\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"importExternalConfig\" data-ws-source=\"codex\" data-ws-slot=\"2\">导入 GPT 配置</button>\n            </div>\n            <div class=\"row\" style=\"gap:6px;margin-bottom:6px\">\n                <select id=\"cfgByok2Model\" style=\"flex:1;font-size:12px;padding:5px 8px\">" + (tmp30 ? "<option value=\"" + tmp30 + "\" selected>" + tmp30 + "</option>" : "<option value=\"\" disabled selected>请先加载模型</option>") + "</select>\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"fetchModels\" data-ws-slot=\"2\" style=\"padding:4px 8px\">加载模型</button>\n            </div>\n            <div class=\"fg\" id=\"cfgByok2ThinkingEffortRow\"><label id=\"cfgByok2ThinkingLabel\">" + esc(thinkingEffort_1.getThinkingIntensityHint(thinkingEffort_1.detectModelProvider(tmp30))) + "</label><select id=\"cfgByok2ThinkingEffort\">" + buildThinkingEffortOptions(tmp30, tmp32) + "</select></div>\n            <div id=\"modelFetchStatus2\" style=\"font-size:10px;color:" + tmp17 + "\"></div>\n        </div>\n        <!-- hidden config fields -->\n        <input type=\"hidden\" id=\"cfgApiMode\" value=\"unified_custom\">\n        <input type=\"hidden\" id=\"cfgAnthropicPath\" value=\"" + esc(tmp2.ANTHROPIC_API_PATH || "/v1/messages") + "\">\n        <input type=\"hidden\" id=\"cfgOpenaiPath\" value=\"" + esc(tmp2.OPENAI_API_PATH || "/v1/responses") + "\">\n        <input type=\"hidden\" id=\"cfgMaxTokens\" value=\"" + esc(tmp2.MAX_TOKENS || "16384") + "\">\n        <input type=\"hidden\" id=\"cfgCompletionTimeoutMs\" value=\"" + esc(tmp2.COMPLETION_TIMEOUT_MS || "12000") + "\">\n        <input type=\"hidden\" id=\"cfgSysPromptOverride\" value=\"" + (tmp9 ? "true" : "") + "\">\n        <input type=\"hidden\" id=\"cfgSysPromptPath\" value=\"" + esc(tmp8) + "\">\n        <div class=\"row between\" style=\"margin-bottom:8px;padding:6px 8px;border:1px solid " + tmp21 + ";border-radius:8px;background:rgba(255,255,255,.02)\">\n            <div style=\"min-width:0\">\n                <div style=\"font-size:10px;color:#a1a1aa;font-weight:600\">提示词</div>\n                <div style=\"font-size:9px;color:" + tmp17 + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">" + (tmp9 ? "已启用 · " + esc(tmp8) : "未启用 · 使用 Devin Desktop 原始提示词") + "</div>\n            </div>\n            <div class=\"row\" style=\"gap:4px;flex-shrink:0\">\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"openPromptTemplates\" style=\"padding:4px 8px\">模板</button>\n                <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"openSystemPrompt\" style=\"padding:4px 8px\">自定义</button>\n            </div>\n        </div>\n        <input type=\"hidden\" id=\"cfgDefaultModelCustom\" value=\"\">\n        <div class=\"row\" style=\"gap:6px;margin-bottom:10px\">\n            <div class=\"fg\" style=\"flex:1;margin-bottom:0\">\n                <label>Hybrid 端口</label>\n                <input type=\"number\" id=\"cfgHybridPort\" value=\"" + esc(String(tmp02.hybridPort)) + "\" placeholder=\"3006\" min=\"1\" max=\"65535\">\n            </div>\n            <div class=\"fg\" style=\"flex:1;margin-bottom:0\">\n                <label>Inference 端口</label>\n                <input type=\"number\" id=\"cfgInferencePort\" value=\"" + esc(String(tmp02.inferencePort)) + "\" placeholder=\"3001\" min=\"1\" max=\"65535\">\n            </div>\n        </div>\n        <div class=\"btns\" style=\"margin-bottom:8px\" id=\"proxyControlButtons\">\n            " + (tmp02.running ? "<button type=\"button\" class=\"btn btn-d\" data-ws-action=\"stopProxy\">停止代理</button>" : "<button type=\"button\" class=\"btn btn-p\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>") + "\n            <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"saveConfig\">仅保存配置</button>\n            <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"maintenanceTools\">维护工具</button>\n        </div>\n        <div id=\"environmentCheckResult\" class=\"env-check hidden\"></div>\n        <div class=\"row between\" style=\"margin-bottom:4px\">\n            <div class=\"row\">\n                <span style=\"font-size:11px;color:" + tmp16 + "\">自动启动</span>\n                <label class=\"tog\"><input type=\"checkbox\" id=\"cfgAutoStartProxy\" " + (tmp5 ? "checked" : "") + "><span></span></label>\n            </div>\n            <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"newWindow\" style=\"font-size:10px;padding:3px 8px\">新窗口</button>\n        </div>\n        <div id=\"proxyActionState\" class=\"action-state hidden\">\n            <div id=\"proxyActionText\" class=\"action-text\"></div>\n            <div class=\"action-progress\"><div class=\"action-progress-bar\"></div></div>\n        </div>\n        <div id=\"configActionState\" class=\"action-state hidden\">\n            <div id=\"configActionText\" class=\"action-text\"></div>\n            <div class=\"action-progress\"><div class=\"action-progress-bar\"></div></div>\n        </div>\n    </div>\n</div>\n\n<!-- 步骤 2: 运行状态 -->\n<div class=\"card\">\n    <div class=\"card-head\" id=\"proxyStatusTitle\">② 运行状态</div>\n    <div class=\"stats\">\n        <div class=\"st\"><b id=\"statPort\">" + tmp02.hybridPort + "</b><small>端口</small></div>\n        <div class=\"st\"><b id=\"statUptime\">" + (tmp02.running ? formatUptime(tmp02.uptime) : "--") + "</b><small>时长</small></div>\n        <div class=\"st\"><b id=\"statRequests\">" + tmp02.requestCount + "</b><small>请求</small></div>\n    </div>\n</div>\n\n<!-- 步骤 3: 补丁管理 -->\n<div class=\"card\">\n    <div class=\"card-head between\">\n        <span>③ 补丁管理</span>\n        <span id=\"patchBadge\" class=\"badge " + tmp34 + "\">" + tmp35 + "</span>\n    </div>\n    <input type=\"hidden\" id=\"patchApiUrl\" value=\"" + esc(tmp3) + "\">\n    <input type=\"hidden\" id=\"patchInferenceUrl\" value=\"" + esc(tmp4) + "\">\n    <div id=\"patchPathDisplay\" class=\"patch-path\">" + (tmp6 ? "<b>补丁路径</b> " + esc(tmp6) : "<b>补丁路径</b> 自动检测；非默认安装请点\"选择路径\"") + "</div>\n    <div class=\"btns\" style=\"margin-bottom:6px\">\n        <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"locateExtJs\">选择路径</button>\n        <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"clearExtJsPath\">自动检测</button>\n        <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"refreshPatchStatus\">刷新状态</button>\n    </div>\n    <div class=\"btns\" id=\"patchActionButtons\">\n        <button type=\"button\" class=\"btn btn-p sm\" data-ws-action=\"applyPatch\">安装补丁</button>\n        <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"revertPatch\">还原</button>\n    </div>\n    <div id=\"patchActionState\" class=\"action-state hidden\">\n        <div id=\"patchActionText\" class=\"action-text\"></div>\n        <div class=\"action-progress\"><div class=\"action-progress-bar\"></div></div>\n    </div>\n</div>\n\n<!-- 日志 -->\n<div class=\"card\">\n    <div class=\"card-head between\">\n        <span class=\"toggle-section\" data-ws-toggle=\"logBody\">日志</span>\n        <button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"copyLogs\" style=\"font-size:10px;padding:3px 6px\">复制</button>\n    </div>\n    <div id=\"logBody\">\n        <div class=\"log-box\" id=\"logBox\">" + tmp36 + "</div>\n        <div id=\"copyToast\" style=\"display:none;text-align:center;color:#34d399;font-size:10px;margin-top:4px\">已复制</div>\n    </div>\n</div>\n\n</div>\n\n<script nonce=\"" + tmp10 + "\" src=\"" + tmp12 + "\"></script>\n</body>\n</html>";
+
+    return `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${tmp11} 'unsafe-inline'; img-src ${tmp11} https: data:; script-src 'nonce-${tmp10}' ${tmp11};">
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+  background: ${tmp18};
+  color: ${tmp22};
+  padding: 12px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+body::before, body::after {
+  display: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.card {
+  background: ${tmp19};
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid ${tmp21};
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  border-color: color-mix(in srgb, ${tmp13} 25%, ${tmp21});
+}
+.card-head {
+  font-size: 12px;
+  font-weight: 700;
+  color: ${tmp23};
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 0;
+}
+.st {
+  background: ${tmp20};
+  border-radius: 6px;
+  padding: 8px 4px;
+  text-align: center;
+  border: 1px solid ${tmp21};
+  transition: border-color 0.2s;
+}
+.st:hover {
+  border-color: rgba(94, 234, 212, 0.2);
+}
+.st b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: ${tmp15};
+  line-height: 1.1;
+  font-family: ${tmp24};
+}
+.st small {
+  font-size: 9px;
+  color: ${tmp16};
+  margin-top: 4px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.btn {
+  min-height: 28px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  letter-spacing: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.btn-p {
+  background: linear-gradient(135deg, #0d9488, #0ea5e9);
+  color: var(--vscode-button-foreground, #fff);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.btn-p:hover {
+  background: linear-gradient(135deg, #0f766e, #0284c7);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(13, 148, 136, 0.25);
+}
+.btn-p:active {
+  transform: translateY(0);
+}
+.btn-d {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.btn-d:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.25);
+}
+.btn-d:active {
+  transform: translateY(0);
+}
+.btn-s {
+  background: ${tmp20};
+  color: ${tmp22};
+  border: 1px solid ${tmp21};
+  box-shadow: none;
+}
+.btn-s:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: ${tmp23};
+  transform: translateY(-0.5px);
+}
+.btn-s:active {
+  transform: translateY(0);
+}
+.sm {
+  min-height: 20px;
+  padding: 2px 8px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+.btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.fg {
+  margin-bottom: 8px;
+}
+.fg label {
+  display: block;
+  font-size: 10px;
+  color: ${tmp16};
+  margin-bottom: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], select {
+  width: 100%;
+  height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--vscode-input-border, ${tmp21});
+  border-radius: 6px;
+  font-size: 11px;
+  background: ${tmp20};
+  color: ${tmp23};
+  font-family: ${tmp24};
+  box-shadow: none;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, ${tmp13});
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+.login-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.login-tab {
+  min-height: 28px;
+}
+.login-pane.hidden {
+  display: none !important;
+}
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: ${tmp16};
+  line-height: 1.3;
+  padding: 1px 2px 3px;
+}
+.remember-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.remember-row input {
+  accent-color: ${tmp13};
+  width: 14px;
+  height: 14px;
+}
+.inline-form {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.inline-form input {
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── Badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.badge-ok {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.15);
+}
+.badge-warn {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.15);
+}
+.badge-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Toggle ── */
+.tog {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.tog input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.tog span {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #3f3f46;
+  border-radius: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tog span::before {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  left: 3px;
+  bottom: 3px;
+  background: #a1a1aa;
+  border-radius: 50%;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tog input:checked+span {
+  background: ${tmp13};
+}
+.tog input:checked+span::before {
+  transform: translateX(12px);
+  background: #fff;
+}
+
+/* ── Log ── */
+.log-box {
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: ${tmp24};
+  font-size: 10px;
+  line-height: 1.5;
+  color: ${tmp16};
+}
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 2px;
+}
+.log-line.hi {
+  color: ${tmp15};
+}
+.log-line.err {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.05);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.log-line.dim {
+  color: #4b5563;
+}
+
+/* ── Action feedback ── */
+.action-state {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+}
+.action-text {
+  font-size: 10px;
+  color: #a1a1aa;
+  margin-bottom: 5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.action-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.action-progress-bar {
+  width: 35%;
+  height: 100%;
+  background: ${tmp13};
+  border-radius: 999px;
+  animation: prog 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.action-state.success .action-text {
+  color: #34d399;
+}
+.action-state.error .action-text {
+  color: #f87171;
+}
+.action-state.success .action-progress-bar, .action-state.error .action-progress-bar {
+  width: 100%;
+  animation: none;
+}
+@keyframes prog {
+  0% { transform: translateX(-120%) }
+  100% { transform: translateX(320%) }
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 12px;
+  gap: 4px;
+}
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: ${tmp16};
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+}
+.tab-btn:hover {
+  color: ${tmp23};
+  background: rgba(255, 255, 255, 0.03);
+}
+.tab-btn.active {
+  background: ${tmp19};
+  color: ${tmp15};
+  border: 1px solid ${tmp21};
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+
+/* ── Misc ── */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.between {
+  justify-content: space-between;
+}
+.toggle-section {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.toggle-section::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  transform: rotate(90deg);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.7;
+}
+.toggle-section.collapsed::before {
+  transform: rotate(0deg);
+}
+.hidden {
+  display: none !important;
+}
+.info-strip {
+  background: ${tmp19};
+  border: 1px solid ${tmp21};
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: ${tmp16};
+}
+.info-row b, .info-link {
+  font-size: 11px;
+  color: ${tmp15};
+  font-family: ${tmp24};
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+  text-align: right;
+}
+.info-link:hover {
+  text-decoration: underline;
+  color: ${tmp15};
+}
+.info-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+.info-actions .btn {
+  flex: 1;
+}
+.login-card {
+  position: relative;
+  overflow: hidden;
+  padding: 14px;
+  border-color: var(--vscode-focusBorder, ${tmp21});
+  background: ${tmp19};
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.login-card::before, .login-card::after {
+  display: none;
+}
+@keyframes shine {
+  0%, 100% { transform: none }
+}
+.login-hero {
+  position: relative;
+  margin-bottom: 13px;
+  z-index: 1;
+}
+.login-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+  color: ${tmp15};
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.login-kicker::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: ${tmp15};
+}
+.login-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: ${tmp23};
+  margin-bottom: 4px;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+.login-subtitle {
+  font-size: 10px;
+  color: ${tmp16};
+  line-height: 1.55;
+  max-width: 28em;
+}
+.login-hint {
+  font-size: 10px;
+  color: ${tmp16};
+  line-height: 1.55;
+  margin-top: 9px;
+  position: relative;
+  z-index: 1;
+}
+.login-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 7px;
+  margin-top: 9px;
+}
+.login-actions .btn {
+  flex: 1;
+}
+.login-submit {
+  height: 40px;
+  margin-top: 2px;
+  font-size: 13px;
+}
+.account-card {
+  border-color: var(--vscode-focusBorder, ${tmp21});
+  background: linear-gradient(135deg, color-mix(in srgb, var(--vscode-button-background, #0d9488) 10%, ${tmp19}), ${tmp19});
+}
+.account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.account-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--vscode-testing-iconPassed, #34d399);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vscode-testing-iconPassed, #34d399) 16%, transparent);
+  flex: none;
+}
+.account-meta {
+  min-width: 0;
+}
+.account-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: ${tmp23};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-sub {
+  font-size: 10px;
+  color: ${tmp16};
+  margin-top: 2px;
+}
+.account-state {
+  font-size: 10px;
+  color: ${tmp15};
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.login-steps li {
+  margin-bottom: 1px;
+}
+.instance-entry {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 34px;
+}
+.instance-entry small {
+  font-size: 10px;
+  color: ${tmp16};
+  font-weight: 500;
+}
+.instance-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.instance-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: ${tmp23};
+}
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 7px;
+  max-height: calc(100vh - 145px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.instance-card {
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+  border-radius: 8px;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.instance-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.instance-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.instance-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: ${tmp23};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.instance-sub {
+  font-size: 9px;
+  color: ${tmp16};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.instance-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.empty-text {
+  font-size: 10px;
+  color: ${tmp16};
+  line-height: 1.45;
+  padding: 3px 0;
+}
+.env-check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.env-check-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: ${tmp16};
+}
+.env-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.env-check-item {
+  border: 1px solid ${tmp21};
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.015);
+  padding: 8px;
+}
+.env-check-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: ${tmp23};
+}
+.env-check-detail {
+  margin-top: 4px;
+  font-size: 9px;
+  color: ${tmp16};
+  line-height: 1.35;
+  word-break: break-all;
+}
+.env-check-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.env-check-probe {
+  font-size: 9px;
+  color: ${tmp16};
+  line-height: 1.35;
+  word-break: break-all;
+  margin-top: 4px;
+}
+.badge-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.15);
+}
+.patch-path {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px dashed rgba(94, 234, 212, 0.2);
+  color: ${tmp16};
+  font-size: 10px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.patch-path b {
+  color: ${tmp15};
+  font-weight: 700;
+}
+.guide-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: ${tmp16};
+  font-size: 10px;
+  line-height: 1.55;
+}
+.guide-block {
+  border: 1px solid ${tmp21};
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 10px;
+  position: relative;
+  transition: background-color 0.2s;
+}
+.guide-block:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+.byok1-stripe {
+  border-left: 3px solid #0d9488;
+}
+.byok2-stripe {
+  border-left: 3px solid #0ea5e9;
+}
+.guide-block b {
+  display: block;
+  color: ${tmp23};
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.guide-block ol, .guide-block ul {
+  padding-left: 18px;
+  margin: 0;
+}
+.guide-block li {
+  margin: 3px 0;
+}
+.guide-code {
+  display: block;
+  background: ${tmp20};
+  border: 1px solid ${tmp21};
+  border-radius: 4px;
+  padding: 5px 6px;
+  margin-top: 4px;
+  color: ${tmp15};
+  font-family: ${tmp24};
+  font-size: 9px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+.guide-note {
+  border-left: 2px solid ${tmp13};
+  padding-left: 7px;
+  color: ${tmp16};
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+    <div class="card-head between">
+        <span class="toggle-section collapsed" data-ws-toggle="tutorialBody">使用教程</span>
+        <span class="badge badge-ok">内置</span>
+    </div>
+    <div id="tutorialBody" class="guide-body hidden">
+        <div class="guide-block">
+            <b>快速使用</b>
+            <ol>
+                <li>分别为 BYOK #1 / #2 填写 Base URL、API Key，加载模型并选择模型；Claude/GPT 可设置思考强度。</li>
+                <li>配置完成后点击一键启动。</li>
+                <li>补丁就绪后重载窗口；Windsurf 里分别使用 <code>Claude Opus 4 BYOK</code> 与 <code>Claude Opus 4 Thinking BYOK</code>。</li>
+            </ol>
+        </div>
+        <div class="guide-block">
+            <b>日常使用</b>
+            <ul>
+                <li>只换 API Key 或模型：修改后会自动保存。</li>
+                <li>聊天没有走代理：重新安装补丁并重载窗口。</li>
+                <li>模型列表加载失败：检查 API Key、余额、网络和日志错误。</li>
+            </ul>
+        </div>
+        <div class="guide-note">BYOK #1 对应 Windsurf 的 <code>Claude Opus 4 BYOK</code>；BYOK #2 对应 <code>Claude Opus 4 Thinking BYOK</code>。两套 API / 模型完全独立。</div>
+    </div>
+</div>
+
+<div class="tabs">
+    <button type="button" class="tab-btn active" data-tab="tab-config">配置连接</button>
+    <button type="button" class="tab-btn" data-tab="tab-control">控制状态</button>
+    <button type="button" class="tab-btn" data-tab="tab-system">系统补丁</button>
+</div>
+
+<div id="mainPanel" class="">
+    <!-- hidden config fields, always active in the background -->
+    <input type="hidden" id="cfgApiMode" value="unified_custom">
+    <input type="hidden" id="cfgAnthropicPath" value="${esc(tmp2.ANTHROPIC_API_PATH || "/v1/messages")}">
+    <input type="hidden" id="cfgOpenaiPath" value="${esc(tmp2.OPENAI_API_PATH || "/v1/responses")}">
+    <input type="hidden" id="cfgMaxTokens" value="${esc(tmp2.MAX_TOKENS || "16384")}">
+    <input type="hidden" id="cfgCompletionTimeoutMs" value="${esc(tmp2.COMPLETION_TIMEOUT_MS || "12000")}">
+    <input type="hidden" id="cfgSysPromptOverride" value="${tmp9 ? "true" : ""}">
+    <input type="hidden" id="cfgSysPromptPath" value="${esc(tmp8)}">
+    <input type="hidden" id="cfgDefaultModelCustom" value="">
+    <div id="environmentCheckResult" class="env-check hidden"></div>
+    <div id="proxyActionState" class="action-state hidden">
+        <div id="proxyActionText" class="action-text"></div>
+        <div class="action-progress"><div class="action-progress-bar"></div></div>
+    </div>
+    <div id="configActionState" class="action-state hidden">
+        <div id="configActionText" class="action-text"></div>
+        <div class="action-progress"><div class="action-progress-bar"></div></div>
+    </div>
+
+    <!-- TAB 1: Config -->
+    <div class="tab-content active" id="tab-config">
+        <div class="guide-block byok1-stripe" style="margin-bottom:10px">
+            <b>BYOK #1 · Claude Opus 4 BYOK</b>
+            <div class="fg"><label>Base URL（可选）</label><input type="text" id="cfgByok1Host" value="${tmp25}" placeholder="例如 api-a.example.com"></div>
+            <div class="fg"><label>API Key</label><input type="password" id="cfgByok1Key" value="${tmp26}" placeholder="BYOK #1 API Key" autocomplete="off"></div>
+            <div class="btns" style="margin-bottom:6px">
+                <button type="button" class="btn btn-s sm" data-ws-action="importExternalConfig" data-ws-source="claude" data-ws-slot="1">导入 Claude 配置</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="importExternalConfig" data-ws-source="codex" data-ws-slot="1">导入 GPT 配置</button>
+            </div>
+            <div class="row" style="gap:6px;margin-bottom:6px">
+                <select id="cfgByok1Model" style="flex:1;font-size:12px;padding:5px 8px">${tmp27 ? `<option value="${tmp27}" selected>${tmp27}</option>` : "<option value=\"\" disabled selected>请先加载模型</option>"}</select>
+                <button type="button" class="btn btn-s sm" data-ws-action="fetchModels" data-ws-slot="1" style="padding:4px 8px">加载模型</button>
+            </div>
+            <div class="fg" id="cfgByok1ThinkingEffortRow"><label id="cfgByok1ThinkingLabel">${esc(thinkingEffort_1.getThinkingIntensityHint(thinkingEffort_1.detectModelProvider(tmp27)))}</label><select id="cfgByok1ThinkingEffort">${buildThinkingEffortOptions(tmp27, tmp31)}</select></div>
+            <div id="modelFetchStatus1" style="font-size:10px;color:${tmp17}"></div>
+        </div>
+        <div class="guide-block byok2-stripe" style="margin-bottom:10px">
+            <b>BYOK #2 · Claude Opus 4 Thinking BYOK</b>
+            <div class="fg"><label>Base URL（可选）</label><input type="text" id="cfgByok2Host" value="${tmp28}" placeholder="例如 api-b.example.com"></div>
+            <div class="fg"><label>API Key</label><input type="password" id="cfgByok2Key" value="${tmp29}" placeholder="BYOK #2 API Key" autocomplete="off"></div>
+            <div class="btns" style="margin-bottom:6px">
+                <button type="button" class="btn btn-s sm" data-ws-action="importExternalConfig" data-ws-source="claude" data-ws-slot="2">导入 Claude 配置</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="importExternalConfig" data-ws-source="codex" data-ws-slot="2">导入 GPT 配置</button>
+            </div>
+            <div class="row" style="gap:6px;margin-bottom:6px">
+                <select id="cfgByok2Model" style="flex:1;font-size:12px;padding:5px 8px">${tmp30 ? `<option value="${tmp30}" selected>${tmp30}</option>` : "<option value=\"\" disabled selected>请先加载模型</option>"}</select>
+                <button type="button" class="btn btn-s sm" data-ws-action="fetchModels" data-ws-slot="2" style="padding:4px 8px">加载模型</button>
+            </div>
+            <div class="fg" id="cfgByok2ThinkingEffortRow"><label id="cfgByok2ThinkingLabel">${esc(thinkingEffort_1.getThinkingIntensityHint(thinkingEffort_1.detectModelProvider(tmp30)))}</label><select id="cfgByok2ThinkingEffort">${buildThinkingEffortOptions(tmp30, tmp32)}</select></div>
+            <div id="modelFetchStatus2" style="font-size:10px;color:${tmp17}"></div>
+        </div>
+        <div class="row between" style="margin-bottom:8px;padding:6px 8px;border:1px solid ${tmp21};border-radius:8px;background:rgba(255,255,255,.02)">
+            <div style="min-width:0">
+                <div style="font-size:10px;color:#a1a1aa;font-weight:600">提示词</div>
+                <div style="font-size:9px;color:${tmp17};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tmp9 ? "已启用 · " + esc(tmp8) : "未启用 · 使用 Devin Desktop 原始提示词"}</div>
+            </div>
+            <div class="row" style="gap:4px;flex-shrink:0">
+                <button type="button" class="btn btn-s sm" data-ws-action="openPromptTemplates" style="padding:4px 8px">模板</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="openSystemPrompt" style="padding:4px 8px">自定义</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: Control -->
+    <div class="tab-content" id="tab-control">
+        <div class="row" style="gap:6px;margin-bottom:12px">
+            <div class="fg" style="flex:1;margin-bottom:0">
+                <label>Hybrid 端口</label>
+                <input type="number" id="cfgHybridPort" value="${esc(String(tmp02.hybridPort))}" placeholder="3006" min="1" max="65535">
+            </div>
+            <div class="fg" style="flex:1;margin-bottom:0">
+                <label>Inference 端口</label>
+                <input type="number" id="cfgInferencePort" value="${esc(String(tmp02.inferencePort))}" placeholder="3001" min="1" max="65535">
+            </div>
+        </div>
+        <div class="btns" style="margin-bottom:12px" id="proxyControlButtons">
+            ${tmp02.running ? "<button type=\"button\" class=\"btn btn-d\" data-ws-action=\"stopProxy\">停止代理</button>" : "<button type=\"button\" class=\"btn btn-p\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>"}
+            <button type="button" class="btn btn-s sm" data-ws-action="maintenanceTools">维护工具</button>
+        </div>
+        <div class="row between" style="margin-bottom:12px;padding:4px 0">
+            <div class="row">
+                <span style="font-size:11px;color:${tmp16}">自动启动</span>
+                <label class="tog"><input type="checkbox" id="cfgAutoStartProxy" ${tmp5 ? "checked" : ""}><span></span></label>
+            </div>
+            <button type="button" class="btn btn-s sm" data-ws-action="newWindow" style="font-size:10px;padding:3px 8px">新窗口</button>
+        </div>
+        <div class="card" style="margin-bottom:0">
+            <div class="card-head" id="proxyStatusTitle">运行状态</div>
+            <div class="stats">
+                <div class="st"><b id="statPort">${tmp02.hybridPort}</b><small>端口</small></div>
+                <div class="st"><b id="statUptime">${tmp02.running ? formatUptime(tmp02.uptime) : "--"}</b><small>时长</small></div>
+                <div class="st"><b id="statRequests">${tmp02.requestCount}</b><small>请求</small></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: System -->
+    <div class="tab-content" id="tab-system">
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-head between">
+                <span>补丁管理</span>
+                <span id="patchBadge" class="badge ${tmp34}">${tmp35}</span>
+            </div>
+            <input type="hidden" id="patchApiUrl" value="${esc(tmp3)}">
+            <input type="hidden" id="patchInferenceUrl" value="${esc(tmp4)}">
+            <div id="patchPathDisplay" class="patch-path">${tmp6 ? "<b>补丁路径</b> " + esc(tmp6) : "<b>补丁路径</b> 自动检测；非默认安装请点“选择路径”"}</div>
+            <div class="btns" style="margin-bottom:8px">
+                <button type="button" class="btn btn-s sm" data-ws-action="locateExtJs">选择路径</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="clearExtJsPath">自动检测</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="refreshPatchStatus">刷新状态</button>
+            </div>
+            <div class="btns" id="patchActionButtons">
+                <button type="button" class="btn btn-p sm" data-ws-action="applyPatch">安装补丁</button>
+                <button type="button" class="btn btn-s sm" data-ws-action="revertPatch">还原</button>
+            </div>
+            <div id="patchActionState" class="action-state hidden">
+                <div id="patchActionText" class="action-text"></div>
+                <div class="action-progress"><div class="action-progress-bar"></div></div>
+            </div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+            <div class="card-head between">
+                <span class="toggle-section" data-ws-toggle="logBody">日志</span>
+                <button type="button" class="btn btn-s sm" data-ws-action="copyLogs" style="font-size:10px;padding:3px 6px">复制</button>
+            </div>
+            <div id="logBody">
+                <div class="log-box" id="logBox">${tmp36}</div>
+                <div id="copyToast" style="display:none;text-align:center;color:#34d399;font-size:10px;margin-top:4px">已复制</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script nonce="${tmp10}" src="${tmp12}"></script>
+</body>
+</html>`;
   }
 }
 exports.SidebarProvider = SidebarProvider;
