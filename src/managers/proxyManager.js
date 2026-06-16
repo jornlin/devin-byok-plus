@@ -873,7 +873,9 @@ class ProxyManager {
     });
     if (!(await this.waitForPortBound(tmp5, this.hybridProcess, "hybrid-server", 5000, () => tmp7))) {
       this.autoRestart = false;
-      this.hybridProcess.kill("SIGTERM");
+      if (this.hybridProcess) {
+        this.hybridProcess.kill("SIGTERM");
+      }
       this.hybridProcess = null;
       this.updateStatusBar();
       setTimeout(() => {
@@ -961,7 +963,9 @@ class ProxyManager {
           }
         });
         if (!(await this.waitForPortBound(tmp03, this.inferenceProcess, "inference-proxy", 5000, () => tmp12))) {
-          this.inferenceProcess.kill("SIGTERM");
+          if (this.inferenceProcess) {
+            this.inferenceProcess.kill("SIGTERM");
+          }
           this.inferenceProcess = null;
           if (this.activeInferencePort === tmp03) {
             this.activeInferencePort = undefined;
