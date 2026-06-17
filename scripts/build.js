@@ -1,6 +1,7 @@
 const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // 清理 dist 目录
 const distDir = path.join(__dirname, '..', 'dist');
@@ -8,6 +9,28 @@ if (fs.existsSync(distDir)) {
   fs.rmSync(distDir, { recursive: true, force: true });
 }
 fs.mkdirSync(distDir, { recursive: true });
+
+// 编译 Tailwind CSS
+console.log('🎨 Building Tailwind CSS...');
+const rootDir = path.join(__dirname, '..');
+const cssInput = path.join(rootDir, 'src', 'views', 'styles', 'sidebar.css');
+const cssOutput = path.join(rootDir, 'resources', 'webviews', 'dist', 'sidebar.css');
+const cssOutputDir = path.dirname(cssOutput);
+
+if (!fs.existsSync(cssOutputDir)) {
+  fs.mkdirSync(cssOutputDir, { recursive: true });
+}
+
+try {
+  execSync(
+    `npx tailwindcss -i "${cssInput}" -o "${cssOutput}" --minify`,
+    { cwd: rootDir, stdio: 'inherit' }
+  );
+  console.log('✅ Tailwind CSS built successfully');
+} catch (err) {
+  console.error('❌ Tailwind CSS build failed:', err.message);
+  process.exit(1);
+}
 
 console.log('🔨 Building extension...');
 
