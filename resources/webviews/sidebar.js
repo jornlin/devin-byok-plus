@@ -1003,19 +1003,19 @@
     if (e.ctrlKey || e.metaKey) {
       if (e.key === "1") {
         e.preventDefault();
-        switchTab("tab-config");
+        switchTab("tab-system");
       } else if (e.key === "2") {
         e.preventDefault();
-        switchTab("tab-control");
+        switchTab("tab-config");
       } else if (e.key === "3") {
         e.preventDefault();
-        switchTab("tab-system");
+        switchTab("tab-control");
       }
     }
   });
 
   // 恢复上次选择的标签页
-  const initialTab = tmp3.activeTab || "tab-config";
+  const initialTab = tmp3.activeTab || "tab-system";
   switchTab(initialTab);
   // ========== 标签页功能结束 ==========
 

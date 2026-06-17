@@ -57,17 +57,17 @@ function renderSidebarHtml(ctx) {
 </div>
 
 <div class="tabs">
-    <button type="button" class="tab-btn active" data-tab="tab-config">
+    <button type="button" class="tab-btn active" data-tab="tab-system">
+        系统补丁
+        <span class="tab-badge hidden" id="systemBadge">!</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab="tab-config">
         配置连接
         <span class="tab-badge hidden" id="configBadge">!</span>
     </button>
     <button type="button" class="tab-btn" data-tab="tab-control">
         控制状态
         <span class="tab-badge hidden" id="controlBadge">●</span>
-    </button>
-    <button type="button" class="tab-btn" data-tab="tab-system">
-        系统补丁
-        <span class="tab-badge hidden" id="systemBadge">!</span>
     </button>
 </div>
 
@@ -92,7 +92,16 @@ function renderSidebarHtml(ctx) {
     </div>
 
     <!-- TAB 1: Config -->
-    <div class="tab-content active" id="tab-config">
+    <div class="tab-content active" id="tab-system">
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-head between">
+                <span>补丁管理</span>
+                <span id="patchBadge" class="badge ${tmp34}">${tmp35}</span>
+            </div>
+            <input type="hidden" id="patchApiUrl" value="${esc(tmp3)}">
+            <input type="hidden" id="patchInferenceUrl" value="${esc(tmp4)}">
+            <div id="patchPathDisplay" class="patch-path">${tmp6 ? '<b>补丁路径</b> ' + esc(tmp6) : '<b>补丁路径</b> 自动检测；非默认安装请点"选择路径"'}</div>
+    <div class="tab-content" id="tab-config">
         <div class="guide-block byok1-stripe" style="margin-bottom:10px">
             <b>BYOK #1 · Claude Opus 4 BYOK</b>
             <div class="fg"><label>Base URL（可选）</label><input type="text" id="cfgByok1Host" value="${tmp25}" placeholder="例如 api-a.example.com"></div>
@@ -169,15 +178,6 @@ function renderSidebarHtml(ctx) {
     </div>
 
     <!-- TAB 3: System -->
-    <div class="tab-content" id="tab-system">
-        <div class="card" style="margin-bottom:12px">
-            <div class="card-head between">
-                <span>补丁管理</span>
-                <span id="patchBadge" class="badge ${tmp34}">${tmp35}</span>
-            </div>
-            <input type="hidden" id="patchApiUrl" value="${esc(tmp3)}">
-            <input type="hidden" id="patchInferenceUrl" value="${esc(tmp4)}">
-            <div id="patchPathDisplay" class="patch-path">${tmp6 ? '<b>补丁路径</b> ' + esc(tmp6) : '<b>补丁路径</b> 自动检测；非默认安装请点"选择路径"'}</div>
             <div class="btns" style="margin-bottom:8px">
                 <button type="button" class="btn btn-s sm" data-ws-action="locateExtJs">选择路径</button>
                 <button type="button" class="btn btn-s sm" data-ws-action="clearExtJsPath">自动检测</button>
