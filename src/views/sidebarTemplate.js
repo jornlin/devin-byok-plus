@@ -32,10 +32,10 @@ function renderSidebarHtml(ctx) {
 
 <div class="card">
     <div class="card-head between">
-        <span class="toggle-section collapsed" data-ws-toggle="tutorialBody">使用教程</span>
-        <span class="badge badge-ok">内置</span>
+        <span class="toggle-section" data-ws-toggle="tutorialBody">📖 使用教程</span>
+        <span class="badge badge-ok">必读</span>
     </div>
-    <div id="tutorialBody" class="guide-body hidden">
+    <div id="tutorialBody" class="guide-body">
         <div class="guide-block">
             <b>快速使用</b>
             <ol>
