@@ -40,11 +40,12 @@ npx @vscode/vsce package --no-dependencies
 
 ### 2. 必需文件
 
-- ✅ `package.json` - 插件清单
-- ✅ `extension.js` - 插件入口文件
+- ✅ `package.json` - 插件清单（`main` 指向 `./src/extension.js`）
+- ✅ `src/extension.js` - 插件入口文件
 - ✅ `README.md` - 使用说明
 - ✅ `LICENSE.txt` - 许可证文件
 - ✅ `CHANGELOG.md` - 更新日志
+- ✅ `resources/icons/icon.png` - 插件图标
 
 ### 3. .vscodeignore 配置
 
@@ -62,7 +63,7 @@ npx @vscode/vsce package --no-dependencies
 
 ```json
 {
-  "version": "2.0.3"  // 主版本.次版本.修订号
+  "version": "2.1.1"  // 主版本.次版本.修订号
 }
 ```
 
@@ -76,7 +77,7 @@ npx @vscode/vsce package --no-dependencies
 每次发布前，在 `CHANGELOG.md` 中记录变更：
 
 ```markdown
-## [2.0.3] - 2025-06-14
+## [2.1.2] - 2026-06-20
 
 ### 新增
 - 新功能描述
@@ -90,7 +91,7 @@ npx @vscode/vsce package --no-dependencies
 成功打包后会在 `build/` 目录生成：
 
 ```
-build/devin-byok-plus-2.0.2.vsix
+build/devin-byok-plus-2.1.1.vsix
 ```
 
 文件命名格式：`{name}-{version}.vsix`
@@ -108,7 +109,7 @@ build/devin-byok-plus-2.0.2.vsix
 ### 方法 2：通过命令行安装
 
 ```bash
-code --install-extension build/devin-byok-plus-2.0.2.vsix
+code --install-extension build/devin-byok-plus-2.1.1.vsix
 ```
 
 ### 方法 3：手动安装
@@ -133,9 +134,9 @@ npx vsce login <publisher-name>
 npm run vsce:publish
 
 # 或手动指定版本号
-npx vsce publish patch  # 2.0.2 -> 2.0.3
-npx vsce publish minor  # 2.0.2 -> 2.1.0
-npx vsce publish major  # 2.0.2 -> 3.0.0
+npx vsce publish patch  # 2.1.1 -> 2.1.2
+npx vsce publish minor  # 2.1.1 -> 2.2.0
+npx vsce publish major  # 2.1.1 -> 3.0.0
 ```
 
 ## 常见问题

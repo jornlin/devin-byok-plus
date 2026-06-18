@@ -95,7 +95,7 @@ function renderSidebarHtml(ctx) {
     byok2BadgeText: byok2Configured ? '已配置' : '未配置',
 
     // 提示词状态
-    promptStatus: tmp9 ? '已启用 · ' + esc(tmp8) : '未启用 · 使用 Devin Desktop 原始提示词',
+    promptStatus: tmp9 ? '已启用 ' + esc(tmp8) : '未启用 · 使用 Devin Desktop 原始提示词',
     promptBadgeClass: tmp9 ? 'badge-ok' : 'badge-warn',
     promptBadgeText: tmp9 ? '已启用' : '未启用',
 
