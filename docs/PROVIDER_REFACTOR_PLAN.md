@@ -156,12 +156,19 @@ src/
     UI 编排职责；强行抽成 service 需注入 vscode/proxyManager/context 与多个回调，制造别扭间接层、
     高回归风险且无测试网兜底，收益甚微。故仅抽离纯数据，编排逻辑保留在 Controller。
 - [ ] 阶段 4（可选）：去混淆
+- [x] **阶段 5：诊断/探测无状态函数下沉**（2026-06-17 完成）
+  - 5.1（commit 93aa264）：5 个分析/文本纯函数并入 diagnostics.js（+12 测试）
+  - 5.2（commit 674dbd4）：6 个无状态 I/O 函数抽到新模块 environmentProbe.js（+14 测试）
+  - Provider 2129 → 1790 行（本阶段 -339）
 
 ## 七、最终成果
 
-- Provider：2636 → 2129 行（-507 行，-19%）
-- 新增 4 个可复用模块：sidebar-utils、modelFetcher、diagnostics、promptTemplates
-- 测试：52（且 27 失败）→ 152 全绿（+100 用例，4 个模块各有专属测试）
+- Provider：2636 → **1790 行**（-846 行，**-32%**）
+- 新增 6 个可复用模块：sidebar-utils、modelFetcher、diagnostics、promptTemplates、environmentProbe（+ 复用 gatewayUrl）
+- 测试：52（且 27 失败）→ **178 全绿**（+126 用例，每个新模块均有专属测试锁定行为）
 - 删除死代码：3 个零引用模块（464 行）+ measureTcpLatency
 - 修复真实问题：转义双重/分裂、XSS 断言、过时测试断言
+- 保留在 Controller（合理）：handleMessage 消息分发、WebView 生命周期、补丁/维护/提示词 UI 编排、
+  重 I/O 编排（checkManagedEnvironment/createDiagnosticReport/checkWindsurfProcessRouting 等，
+  依赖 this.proxyManager/context/logLines）
 
