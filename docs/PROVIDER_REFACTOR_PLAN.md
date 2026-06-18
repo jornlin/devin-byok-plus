@@ -143,8 +143,25 @@ src/
   - 0.6：删除 3 个零引用死模块（sidebar-utils/state/models，共 464 行），重复常量归一
   - 验证：测试全绿 + esbuild 打包成功（215.1kb）
   - 备注：Provider 无法用裸 `node -e` 加载是既有约束（reloadWorkbench.js:7 裸 require vscode），非本次引入
-- [ ] 阶段 1：纯工具函数
-- [ ] 阶段 2：modelFetcher + diagnostics
-- [ ] 阶段 3：maintenanceTools + systemPromptManager
+- [x] **阶段 1：纯工具函数**（2026-06-17 完成，commit 4e55659）
+  - 抽 7 个无状态函数到 sidebar-utils.js，替换 37 处调用，+22 测试
+- [x] **阶段 2a：modelFetcher**（2026-06-17 完成，commit f4f52f3）
+  - 抽 11 个模型拉取方法到 services/modelFetcher.js，fetchModelsFromGateway 注入 proxyManager，+23 测试
+- [x] **阶段 2b：diagnostics**（2026-06-17 完成，commit 7ac87d2）
+  - 抽 4 分类器 + 3 路由解析 + 2 常量到 services/diagnostics.js，删死代码 measureTcpLatency，+21 测试
+- [x] **阶段 3：提示词模板数据**（2026-06-17 完成）
+  - 抽 DEFAULT_SYSTEM_PROMPT + BUILT_IN_PROMPT_TEMPLATES 到 services/promptTemplates.js，+8 测试
+  - **范围决策**：maintenanceTools / systemPrompt 编辑等方法**未抽离**。经评估它们深度耦合控制器
+    （17 处 vscode 对话框 + 大量 this.proxyManager/postActionState/refresh/context），属于真正的
+    UI 编排职责；强行抽成 service 需注入 vscode/proxyManager/context 与多个回调，制造别扭间接层、
+    高回归风险且无测试网兜底，收益甚微。故仅抽离纯数据，编排逻辑保留在 Controller。
 - [ ] 阶段 4（可选）：去混淆
+
+## 七、最终成果
+
+- Provider：2636 → 2129 行（-507 行，-19%）
+- 新增 4 个可复用模块：sidebar-utils、modelFetcher、diagnostics、promptTemplates
+- 测试：52（且 27 失败）→ 152 全绿（+100 用例，4 个模块各有专属测试）
+- 删除死代码：3 个零引用模块（464 行）+ measureTcpLatency
+- 修复真实问题：转义双重/分裂、XSS 断言、过时测试断言
 
