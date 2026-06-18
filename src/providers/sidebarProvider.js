@@ -55,6 +55,7 @@ const sidebarHtml_1 = require('../views/sidebarHtml');
 const gatewayUrl_1 = require('../utils/gatewayUrl');
 const sidebarTemplate_1 = require('../views/sidebarTemplate');
 const sidebarUtils_1 = require('./sidebar-utils');
+const modelFetcher_1 = require('../services/modelFetcher');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH = 'windsurf-byok-plus.patchExtensionPath';
@@ -347,7 +348,7 @@ class SidebarProvider {
     }
   }
   getModeScopedConfig(tmp02 = this.proxyManager.readEnvConfig()) {
-    const tmp1 = this.normalizeProviderBaseUrl({
+    const tmp1 = modelFetcher_1.normalizeProviderBaseUrl({
       ...tmp02,
     });
     if (!String(tmp1.BYOK1_MODEL || '').trim()) {
@@ -385,233 +386,12 @@ class SidebarProvider {
     return this.getModeScopedConfig(tmp02);
   }
   writeModeScopedConfig(tmp02) {
-    const merged = this.normalizeProviderBaseUrl({
+    const merged = modelFetcher_1.normalizeProviderBaseUrl({
       ...this.proxyManager.readEnvConfig(),
       ...tmp02,
     });
     this.proxyManager.writeEnvConfig(merged);
     return merged;
-  }
-  normalizeModelsResponse(tmp02) {
-    if (tmp02?.data && Array.isArray(tmp02.data)) {
-      const tmp03 = tmp02.data.map((arg0) => ({
-        id: arg0.id,
-        provider: /claude|anthropic/i.test(arg0.id) ? 'anthropic' : 'openai',
-      }));
-      const tmp1 = tmp03.filter((arg0) => arg0.provider === 'anthropic');
-      const tmp2 = tmp03.filter((arg0) => arg0.provider === 'openai');
-      const tmp3 = {
-        models: tmp1,
-      };
-      const tmp4 = {
-        models: tmp2,
-      };
-      const tmp5 = {
-        anthropic: tmp3,
-        openai: tmp4,
-      };
-      const tmp6 = {
-        providers: tmp5,
-      };
-      return tmp6;
-    }
-    if (tmp02?.providers) {
-      return tmp02;
-    }
-    throw new Error('未知的模型列表格式');
-  }
-  httpGetModels(tmp02, tmp1, tmp2 = 5000) {
-    return new Promise((fn, fn2) => {
-      const tmp22 = new URL(tmp02);
-      const tmp3 = tmp22.protocol === 'http:' ? http : https;
-      const tmp4 = {};
-      if (tmp1) {
-        tmp4['x-api-key'] = tmp1;
-        tmp4.authorization = 'Bearer ' + tmp1;
-      }
-      const tmp5 = tmp3.request(
-        {
-          hostname: tmp22.hostname,
-          port: tmp22.port ? Number(tmp22.port) : tmp22.protocol === 'http:' ? 80 : 443,
-          path: '' + tmp22.pathname + tmp22.search,
-          method: 'GET',
-          timeout: tmp2,
-          agent:
-            tmp22.hostname === '127.0.0.1' || tmp22.hostname === 'localhost' ? undefined : false,
-          headers: tmp4,
-        },
-        (arg0) => {
-          let tmp12 = '';
-          arg0.setEncoding('utf8');
-          arg0.on('data', (arg02) => (tmp12 += arg02));
-          arg0.on('end', () => {
-            if (arg0.statusCode !== 200) {
-              fn2(new Error('HTTP ' + arg0.statusCode + ': ' + tmp12.slice(0, 200)));
-              return;
-            }
-            try {
-              fn(this.normalizeModelsResponse(JSON.parse(tmp12)));
-            } catch (tmp03) {
-              fn2(new Error('JSON 解析失败: ' + tmp03.message));
-            }
-          });
-        }
-      );
-      tmp5.on('error', (arg0) => fn2(arg0));
-      tmp5.on('timeout', () => {
-        tmp5.destroy();
-        fn2(new Error('请求超时'));
-      });
-      tmp5.end();
-    });
-  }
-  getModelListUrl(tmp02) {
-    const tmp1 = String(tmp02 || '').trim();
-    if (!tmp1) {
-      throw new Error('请先填写 Base URL');
-    }
-    const tmp2 = ensureGatewayUrl(tmp1);
-    const tmp3 = new URL(tmp2);
-    const tmp4 = tmp3.pathname.replace(/\/+$/, '');
-    if (/\/models$/i.test(tmp4)) {
-      tmp3.pathname = tmp4;
-    } else {
-      const tmp03 = tmp4.replace(/\/(messages|responses)$/i, '') || '/v1';
-      tmp3.pathname = tmp03 + '/models';
-    }
-    tmp3.search = '';
-    return tmp3.toString();
-  }
-  normalizeProviderBaseUrl(tmp02) {
-    const tmp1 = {
-      ...tmp02,
-    };
-    const tmp2 = tmp1;
-    for (const tmp03 of ['', 'BYOK1_', 'BYOK2_']) {
-      for (const tmp04 of ['ANTHROPIC_API_HOST', 'OPENAI_API_HOST']) {
-        const tmp05 = String(tmp2[tmp03 + tmp04] || '').trim();
-        if (!tmp05) {
-          continue;
-        }
-        const tmp12 = /^https?:\/\//i.test(tmp05) ? tmp05 : 'https://' + tmp05;
-        let tmp22;
-        try {
-          tmp22 = new URL(tmp12);
-        } catch {
-          tmp2[tmp03 + tmp04] = stripProtoServer(tmp05);
-          continue;
-        }
-        const tmp3 = tmp22.pathname.replace(/\/+$/, '');
-        tmp2[tmp03 + tmp04] = tmp22.host;
-        if (tmp3 && tmp3 !== '/') {
-          const tmp06 =
-            tmp03 + (tmp04 === 'ANTHROPIC_API_HOST' ? 'ANTHROPIC_API_PATH' : 'OPENAI_API_PATH');
-          if (!tmp2[tmp06] || tmp2[tmp06] === '/v1/messages' || tmp2[tmp06] === '/v1/responses') {
-            const tmp07 = tmp04 === 'ANTHROPIC_API_HOST' ? '/messages' : '/responses';
-            let tmp13 = tmp3.replace(/\/models$/i, '');
-            if (/\/(messages|responses)$/i.test(tmp13)) {
-              tmp13 = tmp13.replace(/\/(messages|responses)$/i, '');
-            }
-            tmp2[tmp06] = '' + (tmp13 || '/v1') + tmp07;
-          }
-        }
-      }
-    }
-    return tmp2;
-  }
-  resolveModelFetchCredentials(tmp02, tmp1) {
-    return {
-      apiKey: String(tmp02 || '').trim(),
-      baseUrl: String(tmp1 || '').trim(),
-    };
-  }
-  async fetchModelsFromGateway(tmp02, tmp1) {
-    const tmp2 = String(tmp1 || '').trim();
-    if (tmp2) {
-      const tmp3 = this.getModelListUrl(tmp2);
-      try {
-        return await this.httpGetModels(tmp3, tmp02, 8000);
-      } catch (tmp4) {
-        if (this.isSslProtocolMismatch(tmp4)) {
-          const tmp5 = this.toggleGatewayProtocol(tmp3);
-          if (tmp5 !== tmp3) {
-            return await this.httpGetModels(tmp5, tmp02, 8000);
-          }
-        }
-        throw tmp4;
-      }
-    }
-    const tmp3 = this.proxyManager.getStatus();
-    if (tmp3.running) {
-      try {
-        return await this.httpGetModels(
-          'http://127.0.0.1:' + tmp3.hybridPort + '/api/models',
-          undefined,
-          3000
-        );
-      } catch {}
-    }
-    throw new Error('请先填写 Base URL 和 API Key，或启动代理后加载模型');
-  }
-  formatModelFetchError(tmp02) {
-    const tmp1 = tmp02 instanceof Error ? tmp02.message : String(tmp02 || '');
-    if (/EPROTO|WRONG_VERSION_NUMBER|SSL routines/i.test(tmp1)) {
-      return '加载模型失败：Base URL 的 HTTP/HTTPS 协议不匹配。本地或非 443 端口网关请使用 http://，公网 API 请使用 https://。';
-    }
-    if (/convert_request_failed|not implemented|new_api_error|responses api/i.test(tmp1)) {
-      return '加载模型失败：当前网关可能不支持 OpenAI Responses API；如使用 GPT 网关，请在高级路由中尝试 /v1/chat/completions。';
-    }
-    if (/signature.*field required|field required.*signature|ValidationException/i.test(tmp1)) {
-      return '加载模型失败：上游 Bedrock/Anthropic thinking 历史缺少 signature；请新开对话或关闭思考强度后重试。';
-    }
-    if (
-      /HTTP\s*403/i.test(tmp1) ||
-      /not assigned to any group|permission_error|分组|权限/i.test(tmp1)
-    ) {
-      return '加载模型失败：API Key 没有模型权限或服务拒绝访问，请检查 Base URL 和 API Key。';
-    }
-    if (/HTTP\s*401/i.test(tmp1) || /invalid.*key|unauthorized|鉴权/i.test(tmp1)) {
-      return '加载模型失败：API Key 无效或已过期，请检查 Base URL 和 API Key。';
-    }
-    return tmp1 || '加载模型失败，请检查 API Key、Base URL 和网络连接';
-  }
-  isSslProtocolMismatch(tmp02) {
-    const tmp1 = tmp02 instanceof Error ? tmp02.message : String(tmp02 || '');
-    return /EPROTO|WRONG_VERSION_NUMBER|SSL routines/i.test(tmp1);
-  }
-  toggleGatewayProtocol(tmp02) {
-    const tmp1 = new URL(tmp02);
-    if (tmp1.protocol === 'https:') {
-      tmp1.protocol = 'http:';
-      return tmp1.toString();
-    }
-    if (tmp1.protocol === 'http:') {
-      tmp1.protocol = 'https:';
-      return tmp1.toString();
-    }
-    return tmp02;
-  }
-  flattenModelIds(tmp02) {
-    const tmp1 = tmp02?.providers || {};
-    const tmp2 = [
-      ...(Array.isArray(tmp1.anthropic?.models) ? tmp1.anthropic.models : []),
-      ...(Array.isArray(tmp1.openai?.models) ? tmp1.openai.models : []),
-      ...(Array.isArray(tmp02?.data) ? tmp02.data : []),
-      ...(Array.isArray(tmp02?.models) ? tmp02.models : []),
-    ];
-    const tmp3 = tmp2
-      .map((arg0) => String(arg0?.id || arg0?.name || arg0 || '').trim())
-      .filter(Boolean);
-    return Array.from(new Set(tmp3));
-  }
-  modelIdMatches(tmp02, tmp1) {
-    const tmp2 = String(tmp1 || '')
-      .trim()
-      .replace(/-thinking$/i, '');
-    if (!tmp2) {
-      return true;
-    }
-    return tmp02.some((arg0) => arg0 === tmp2 || arg0.replace(/-thinking$/i, '') === tmp2);
   }
   stripDiagnosticThinkingSuffix(tmp02) {
     return String(tmp02 || '')
@@ -848,10 +628,10 @@ class SidebarProvider {
       );
     }
     try {
-      const tmp03 = await this.fetchModelsFromGateway(tmp1);
-      const tmp12 = this.flattenModelIds(tmp03);
+      const tmp03 = await modelFetcher_1.fetchModelsFromGateway(tmp1, undefined, this.proxyManager);
+      const tmp12 = modelFetcher_1.flattenModelIds(tmp03);
       const tmp22 = tmp12.filter((arg0) => /opus/i.test(arg0));
-      const tmp3 = this.modelIdMatches(tmp12, tmp2);
+      const tmp3 = modelFetcher_1.modelIdMatches(tmp12, tmp2);
       if (tmp12.length === 0) {
         return sidebarUtils_1.envCheckItem(
           'model-catalog',
@@ -2282,7 +2062,7 @@ class SidebarProvider {
             ...this.proxyManager.readEnvConfig(),
             ...(tmp02.config && typeof tmp02.config === 'object' ? tmp02.config : {}),
           };
-          const tmp1 = this.normalizeProviderBaseUrl(tmp03);
+          const tmp1 = modelFetcher_1.normalizeProviderBaseUrl(tmp03);
           const tmp2 = await this.probeConfiguredModelStream(tmp1);
           const tmp3 = {
             type: 'modelProbeResult',
@@ -2370,7 +2150,7 @@ class SidebarProvider {
             loading: true,
           });
           try {
-            const tmp11 = await this.fetchModelsFromGateway(tmp1.apiKey, tmp1.host);
+            const tmp11 = await modelFetcher_1.fetchModelsFromGateway(tmp1.apiKey, tmp1.host, this.proxyManager);
             this.view?.webview.postMessage({
               type: 'modelList',
               slot: tmp03,
@@ -2380,7 +2160,7 @@ class SidebarProvider {
             this.view?.webview.postMessage({
               type: 'modelList',
               slot: tmp03,
-              error: this.formatModelFetchError(tmp11),
+              error: modelFetcher_1.formatModelFetchError(tmp11),
             });
           }
         }
@@ -2395,8 +2175,8 @@ class SidebarProvider {
           loading: true,
         });
         try {
-          const tmp04 = this.resolveModelFetchCredentials(tmp02.apiKey, tmp02.baseUrl);
-          const tmp1 = await this.fetchModelsFromGateway(tmp04.apiKey, tmp04.baseUrl);
+          const tmp04 = modelFetcher_1.resolveModelFetchCredentials(tmp02.apiKey, tmp02.baseUrl);
+          const tmp1 = await modelFetcher_1.fetchModelsFromGateway(tmp04.apiKey, tmp04.baseUrl, this.proxyManager);
           const tmp2 = {
             type: 'modelList',
             slot: tmp03,
@@ -2404,7 +2184,7 @@ class SidebarProvider {
           };
           this.view?.webview.postMessage(tmp2);
         } catch (tmp04) {
-          const tmp1 = this.formatModelFetchError(tmp04);
+          const tmp1 = modelFetcher_1.formatModelFetchError(tmp04);
           const tmp2 = {
             type: 'modelList',
             slot: tmp03,
