@@ -10,6 +10,8 @@
 src/**
 !src/extension.js
 !src/**/*.js
+# 运行时需要的 HTML 模板（sidebarTemplate 通过 fs.readFileSync 加载）
+!src/views/templates/**/*.html
 
 # 构建输出(保留 dist,排除 build 中的 .vsix)
 build/*.vsix
