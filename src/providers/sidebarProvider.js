@@ -56,6 +56,7 @@ const gatewayUrl_1 = require('../utils/gatewayUrl');
 const sidebarTemplate_1 = require('../views/sidebarTemplate');
 const sidebarUtils_1 = require('./sidebar-utils');
 const modelFetcher_1 = require('../services/modelFetcher');
+const diagnostics_1 = require('../services/diagnostics');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH = 'windsurf-byok-plus.patchExtensionPath';
@@ -136,38 +137,6 @@ const BUILT_IN_PROMPT_TEMPLATES = [
     ].join('\n'),
   },
 ];
-const DIAGNOSTIC_OPENAI_PREFIXES = ['gpt-', 'MODEL_GPT'];
-const DIAGNOSTIC_MODEL_MAP = {
-  'gpt-5-4-low': 'gpt-5.4',
-  'gpt-5-4-high': 'gpt-5.4',
-  'gpt-5-4-xhigh': 'gpt-5.4',
-  'gpt-5-4-xhigh-priority': 'gpt-5.4',
-  MODEL_GPT_4O: 'gpt-4o',
-  MODEL_GPT_4O_MINI: 'gpt-4o-mini',
-  MODEL_CLAUDE_3_5_SONNET: 'claude-sonnet-4-20250514',
-  MODEL_CLAUDE_3_5_HAIKU: 'claude-3-5-haiku-20241022',
-  MODEL_CLAUDE_3_OPUS: '__DEFAULT__',
-  MODEL_CLAUDE_4_OPUS: '__DEFAULT__',
-  MODEL_CLAUDE_4_OPUS_BYOK: '__DEFAULT__',
-  MODEL_CLAUDE_4_OPUS_THINKING_BYOK: '__DEFAULT__',
-  MODEL_CLAUDE_OPUS_4: '__DEFAULT__',
-  MODEL_CLAUDE_OPUS_4_1: '__DEFAULT__',
-  MODEL_CLAUDE_SONNET_4: 'claude-sonnet-4-20250514',
-  MODEL_SWE_1: 'claude-sonnet-4-20250514',
-  MODEL_SWE_1_5: 'claude-sonnet-4-20250514',
-  MODEL_SWE_1_5_SLOW: 'claude-sonnet-4-20250514',
-  MODEL_CHAT_11121: '__DEFAULT__',
-  'claude-opus-4-6-thinking': 'claude-opus-4-6-thinking',
-  'claude-opus-4-7-thinking': 'claude-opus-4-7-thinking',
-  'claude-opus-4-8-thinking': 'claude-opus-4-8-thinking',
-  'claude-opus-4-6': 'claude-opus-4-6',
-  'claude-opus-4-7': 'claude-opus-4-7',
-  'claude-opus-4-8': 'claude-opus-4-8',
-  'claude-sonnet-4-6-thinking': 'claude-sonnet-4-20250514-thinking',
-  MODEL_GOOGLE_GEMINI_2_5_FLASH: '__DEFAULT__',
-  MODEL_GOOGLE_GEMINI_2_5_PRO: '__DEFAULT__',
-  MODEL_CHAT: '__DEFAULT__',
-};
 function getWebviewNonce() {
   let tmp02 = '';
   const tmp1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -237,33 +206,6 @@ class SidebarProvider {
     if (this.proxyManager.getStatus().running) {
       this.refresh();
     }
-  }
-  async measureTcpLatency(tmp02, tmp1 = 443, tmp2 = 3000) {
-    const tmp3 = Date.now();
-    return new Promise((fn) => {
-      let tmp12 = false;
-      const tmp22 = {
-        host: tmp02,
-        port: tmp1,
-      };
-      const tmp32 = net.createConnection(tmp22);
-      const fn2 = (arg0, arg1) => {
-        if (tmp12) {
-          return;
-        }
-        tmp12 = true;
-        tmp32.destroy();
-        fn({
-          ok: arg0,
-          latencyMs: Date.now() - tmp3,
-          error: arg1,
-        });
-      };
-      tmp32.setTimeout(tmp2);
-      tmp32.once('connect', () => fn2(true));
-      tmp32.once('timeout', () => fn2(false, 'timeout'));
-      tmp32.once('error', (arg0) => fn2(false, arg0.message));
-    });
   }
   async checkHttpHealth(tmp02, tmp1 = 5000) {
     const tmp2 = Date.now();
@@ -393,36 +335,6 @@ class SidebarProvider {
     this.proxyManager.writeEnvConfig(merged);
     return merged;
   }
-  stripDiagnosticThinkingSuffix(tmp02) {
-    return String(tmp02 || '')
-      .trim()
-      .replace(/-thinking$/i, '');
-  }
-  isDiagnosticOpenAIModel(tmp02) {
-    const tmp1 = this.stripDiagnosticThinkingSuffix(tmp02);
-    return DIAGNOSTIC_OPENAI_PREFIXES.some((arg0) => tmp1.startsWith(arg0));
-  }
-  resolveDiagnosticModelRoute(tmp02, tmp1) {
-    const tmp2 = String(tmp02 || '').trim();
-    const tmp3 = String(tmp1.DEFAULT_MODEL || '').trim();
-    const tmp4 = DIAGNOSTIC_MODEL_MAP[tmp2];
-    const tmp5 =
-      tmp4 === '__DEFAULT__'
-        ? tmp3
-        : tmp4 || tmp3 || (tmp2 && !tmp2.startsWith('MODEL_') ? tmp2 : '');
-    const tmp6 = this.stripDiagnosticThinkingSuffix(tmp5);
-    const tmp7 = tmp6 ? (this.isDiagnosticOpenAIModel(tmp6) ? 'OpenAI' : 'Anthropic') : '未解析';
-    const tmp8 = tmp2.endsWith('-priority') ? 'fast' : undefined;
-    return {
-      requested: tmp2,
-      resolved: tmp5,
-      upstream: tmp6,
-      provider: tmp7,
-      serviceTier: tmp8,
-      usesDefault: tmp4 === '__DEFAULT__' || (!tmp4 && !!tmp3),
-      thinking: /-thinking$/i.test(tmp5),
-    };
-  }
   checkModelRoutingDiagnostic(tmp02) {
     const tmp1 = String(tmp02.DEFAULT_MODEL || '').trim();
     const tmp2 = Array.from(
@@ -441,7 +353,7 @@ class SidebarProvider {
         ].filter(Boolean)
       )
     );
-    const tmp3 = tmp2.map((arg0) => this.resolveDiagnosticModelRoute(arg0, tmp02));
+    const tmp3 = tmp2.map((arg0) => diagnostics_1.resolveDiagnosticModelRoute(arg0, tmp02));
     const tmp4 = tmp3
       .map((arg0) => {
         const tmp12 = [
@@ -666,89 +578,6 @@ class SidebarProvider {
       );
     }
   }
-  classifyProbeBody(tmp02) {
-    const tmp1 = String(tmp02 || '').trim();
-    if (!tmp1) {
-      return '无响应体';
-    }
-    const tmp2 = tmp1
-      .split(/\r?\n/)
-      .map((arg0) => arg0.trim())
-      .find((arg0) => arg0.startsWith('data:') && !/^data:\s*\[DONE\]/i.test(arg0));
-    const tmp3 = (tmp2 ? tmp2.replace(/^data:\s*/i, '') : tmp1).trim();
-    try {
-      const tmp03 = JSON.parse(tmp3);
-      const tmp12 = tmp03?.error || tmp03;
-      const tmp22 = tmp12?.type || tmp12?.code || tmp03?.code || '';
-      const tmp32 = tmp12?.message || tmp03?.message || tmp03?.error_description || '';
-      const tmp4 = [tmp22, tmp32].filter(Boolean).join('：');
-      if (tmp4) {
-        return tmp4.slice(0, 360);
-      }
-    } catch {}
-    return tmp1.replace(/\s+/g, ' ').slice(0, 360);
-  }
-  classifyProbeHttpStatus(tmp02, tmp1) {
-    const tmp2 = tmp02 || 0;
-    const tmp3 = this.classifyProbeBody(tmp1);
-    if (tmp2 === 400) {
-      return 'HTTP 400 请求格式/模型参数错误：' + tmp3;
-    }
-    if (tmp2 === 401) {
-      return 'HTTP 401 鉴权失败，API Key 无效或已过期：' + tmp3;
-    }
-    if (tmp2 === 403 || tmp2 === 404) {
-      return 'HTTP ' + tmp2 + ' 模型无权限、不可用或不存在：' + tmp3;
-    }
-    if (tmp2 === 408 || tmp2 === 504) {
-      return 'HTTP ' + tmp2 + ' 上游超时：' + tmp3;
-    }
-    if (tmp2 === 429) {
-      return 'HTTP 429 额度/限流/并发限制：' + tmp3;
-    }
-    if (tmp2 >= 500) {
-      return 'HTTP ' + tmp2 + ' 上游服务错误：' + tmp3;
-    }
-    return 'HTTP ' + tmp2 + ': ' + tmp3;
-  }
-  classifyProbeSseError(tmp02) {
-    if (!/event:\s*error|data:\s*\{[^\n]*(error|message)/i.test(tmp02)) {
-      return undefined;
-    }
-    const tmp1 = this.classifyProbeBody(tmp02);
-    if (/auth|api.?key|unauthor|invalid.?key/i.test(tmp1)) {
-      return 'HTTP 200 SSE 错误：鉴权失败：' + tmp1;
-    }
-    if (/permission|not.?found|model|access/i.test(tmp1)) {
-      return 'HTTP 200 SSE 错误：模型权限/模型不存在：' + tmp1;
-    }
-    if (/rate|quota|credit|limit|insufficient/i.test(tmp1)) {
-      return 'HTTP 200 SSE 错误：额度/限流：' + tmp1;
-    }
-    return 'HTTP 200 SSE 错误：' + tmp1;
-  }
-  classifyProbeNetworkError(tmp02) {
-    const tmp1 = tmp02;
-    const tmp2 = String(tmp1.code || '').toUpperCase();
-    const tmp3 = tmp02.message || String(tmp02);
-    if (['ENOTFOUND', 'EAI_AGAIN'].includes(tmp2)) {
-      return 'DNS 解析失败：' + tmp3;
-    }
-    if (['ECONNREFUSED', 'ECONNRESET', 'EPIPE'].includes(tmp2)) {
-      return '连接失败/被重置：' + tmp3;
-    }
-    if (['ETIMEDOUT', 'ESOCKETTIMEDOUT'].includes(tmp2)) {
-      return '网络连接超时：' + tmp3;
-    }
-    if (/certificate|tls|ssl|self signed|unable to verify/i.test(tmp3)) {
-      return 'TLS/证书错误：' + tmp3;
-    }
-    if (tmp2) {
-      return tmp2 + ': ' + tmp3;
-    } else {
-      return tmp3;
-    }
-  }
   async probeConfiguredModelStream(tmp02) {
     const tmp1 = String(tmp02.DEFAULT_MODEL || '').trim();
     const tmp2 = tmp1.replace(/-thinking$/i, '');
@@ -840,7 +669,7 @@ class SidebarProvider {
             if (arg0.statusCode && arg0.statusCode !== 200) {
               return;
             }
-            const tmp14 = this.classifyProbeSseError(tmp32);
+            const tmp14 = diagnostics_1.classifyProbeSseError(tmp32);
             if (tmp14) {
               fn2(false, tmp14 + '；首包 ' + tmp22 + 'ms，总耗时 ' + (Date.now() - tmp12) + 'ms');
               return;
@@ -853,10 +682,10 @@ class SidebarProvider {
           });
           arg0.on('end', () => {
             if (arg0.statusCode && arg0.statusCode !== 200) {
-              fn2(false, this.classifyProbeHttpStatus(arg0.statusCode, tmp32));
+              fn2(false, diagnostics_1.classifyProbeHttpStatus(arg0.statusCode, tmp32));
               return;
             }
-            const tmp03 = this.classifyProbeSseError(tmp32);
+            const tmp03 = diagnostics_1.classifyProbeSseError(tmp32);
             if (tmp03) {
               fn2(false, tmp03);
               return;
@@ -872,7 +701,7 @@ class SidebarProvider {
       );
       tmp62.on('error', (arg0) => {
         if (!tmp13) {
-          fn2(false, this.classifyProbeNetworkError(arg0));
+          fn2(false, diagnostics_1.classifyProbeNetworkError(arg0));
         }
       });
       tmp62.on('timeout', () =>
