@@ -58,6 +58,7 @@ const sidebarUtils_1 = require('./sidebar-utils');
 const modelFetcher_1 = require('../services/modelFetcher');
 const diagnostics_1 = require('../services/diagnostics');
 const promptTemplates_1 = require('../services/promptTemplates');
+const environmentProbe_1 = require('../services/environmentProbe');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH = 'windsurf-byok-plus.patchExtensionPath';
@@ -260,61 +261,13 @@ class SidebarProvider {
     this.proxyManager.writeEnvConfig(merged);
     return merged;
   }
-  execFileText(tmp02, tmp1, tmp2) {
-    return new Promise((fn, fn2) => {
-      (0, child_process_1.execFile)(
-        tmp02,
-        tmp1,
-        {
-          timeout: tmp2,
-          windowsHide: true,
-          maxBuffer: 1048576,
-        },
-        (arg0, arg1, arg2) => {
-          if (arg0) {
-            const tmp03 = arg2 ? arg0.message + ': ' + arg2 : arg0.message;
-            fn2(new Error(tmp03));
-            return;
-          }
-          fn(String(arg1 || ''));
-        }
-      );
-    });
-  }
-  async readWindsurfProcessCommandLines() {
-    let tmp02 = '';
-    if (process.platform === 'win32') {
-      const tmp03 =
-        "$self=$PID; Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $self -and $_.CommandLine -match '(?i)(devin|windsurf|codeium|language_server)' } | ForEach-Object { $_.CommandLine }";
-      try {
-        tmp02 = await this.execFileText(
-          'powershell.exe',
-          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', tmp03],
-          3500
-        );
-      } catch {
-        tmp02 = await this.execFileText('wmic.exe', ['process', 'get', 'CommandLine'], 3500);
-      }
-    } else {
-      tmp02 = await this.execFileText('ps', ['-ax', '-o', 'command='], 3500);
-    }
-    return tmp02
-      .split(/\r?\n/)
-      .map((arg0) => arg0.trim())
-      .filter((arg0) =>
-        /(devin|windsurf|codeium|language_server|devin-server|windsurf-server)/i.test(arg0)
-      )
-      .filter(
-        (arg0) => !/Get-CimInstance Win32_Process|wmic\.exe process get CommandLine/i.test(arg0)
-      );
-  }
   async checkWindsurfProcessRouting(tmp02) {
     const { hybridPort: tmp1, inferencePort: tmp2 } = this.proxyManager.portsFromConfig(tmp02);
     const tmp3 = ['localhost:' + tmp1, '127.0.0.1:' + tmp1];
     const tmp4 = ['localhost:' + tmp2, '127.0.0.1:' + tmp2];
     let tmp5 = [];
     try {
-      tmp5 = await this.readWindsurfProcessCommandLines();
+      tmp5 = await environmentProbe_1.readWindsurfProcessCommandLines();
     } catch (tmp03) {
       const tmp12 = tmp03 instanceof Error ? tmp03.message : String(tmp03);
       return sidebarUtils_1.envCheckItem(
@@ -417,143 +370,6 @@ class SidebarProvider {
       );
     }
   }
-  async probeConfiguredModelStream(tmp02) {
-    const tmp1 = String(tmp02.DEFAULT_MODEL || '').trim();
-    const tmp2 = tmp1.replace(/-thinking$/i, '');
-    const tmp3 = tmp02.ANTHROPIC_API_KEY || tmp02.OPENAI_API_KEY || '';
-    if (!tmp2) {
-      return {
-        ok: false,
-        model: tmp1 || '--',
-        detail: '未设置默认模型',
-      };
-    }
-    const tmp4 = {
-      ok: false,
-      model: tmp2,
-      detail: '未配置 API Key',
-    };
-    if (!tmp3) {
-      return tmp4;
-    }
-    if (/^(gpt-|MODEL_GPT)/i.test(tmp2)) {
-      return {
-        ok: false,
-        model: tmp2,
-        detail: '当前探测先覆盖 Claude/Opus 流式链路，请切换默认模型后再测',
-      };
-    }
-    const tmp5 = tmp02.ANTHROPIC_API_HOST || '';
-    const tmp6 = ensureGatewayUrl(tmp5).replace(/\/+$/, '');
-    const tmp7 = new URL(tmp6);
-    const tmp8 = tmp7.protocol === 'http:';
-    const tmp9 = tmp02.ANTHROPIC_API_PATH || '/v1/messages';
-    const tmp10 = {
-      model: tmp2,
-      messages: [
-        {
-          role: 'user',
-          content: 'ping',
-        },
-      ],
-      stream: true,
-      max_tokens: 1,
-    };
-    const tmp11 = JSON.stringify(tmp10);
-    const tmp12 = Date.now();
-    return new Promise((fn) => {
-      let tmp13 = false;
-      let tmp22;
-      let tmp32 = '';
-      const fn2 = (arg0, arg1) => {
-        if (tmp13) {
-          return;
-        }
-        tmp13 = true;
-        tmp62.destroy();
-        const tmp23 = {
-          ok: arg0,
-          model: tmp2,
-          detail: arg1,
-        };
-        fn(tmp23);
-      };
-      const tmp52 = tmp8 ? http : https;
-      const tmp62 = tmp52.request(
-        {
-          hostname: tmp7.hostname,
-          port: tmp7.port ? Number(tmp7.port) : tmp8 ? 80 : 443,
-          path: tmp9,
-          method: 'POST',
-          timeout: 25000,
-          rejectUnauthorized: !tmp8 && (!tmp7.port || tmp7.port === '443'),
-          headers: {
-            'content-type': 'application/json',
-            accept: 'text/event-stream',
-            'anthropic-version': '2023-06-01',
-            'x-api-key': tmp3,
-            'content-length': Buffer.byteLength(tmp11),
-          },
-        },
-        (arg0) => {
-          arg0.setEncoding('utf8');
-          arg0.on('data', (arg02) => {
-            if (tmp22 === undefined) {
-              tmp22 = Date.now() - tmp12;
-            }
-            tmp32 += arg02;
-            if (tmp32.length > 4000) {
-              tmp32 = tmp32.slice(-4000);
-            }
-            if (arg0.statusCode && arg0.statusCode !== 200) {
-              return;
-            }
-            const tmp14 = diagnostics_1.classifyProbeSseError(tmp32);
-            if (tmp14) {
-              fn2(false, tmp14 + '；首包 ' + tmp22 + 'ms，总耗时 ' + (Date.now() - tmp12) + 'ms');
-              return;
-            }
-            if (
-              /event:\s*message_stop|event:\s*content_block_delta|data:\s*\[DONE\]/i.test(tmp32)
-            ) {
-              fn2(true, 'HTTP 200，首包 ' + tmp22 + 'ms，总耗时 ' + (Date.now() - tmp12) + 'ms');
-            }
-          });
-          arg0.on('end', () => {
-            if (arg0.statusCode && arg0.statusCode !== 200) {
-              fn2(false, diagnostics_1.classifyProbeHttpStatus(arg0.statusCode, tmp32));
-              return;
-            }
-            const tmp03 = diagnostics_1.classifyProbeSseError(tmp32);
-            if (tmp03) {
-              fn2(false, tmp03);
-              return;
-            }
-            fn2(
-              tmp22 !== undefined,
-              tmp22 !== undefined
-                ? 'HTTP 200，首包 ' + tmp22 + 'ms，流已结束'
-                : 'HTTP 200，但未收到流式数据，可能被网关转成非 SSE 响应或上游无首包'
-            );
-          });
-        }
-      );
-      tmp62.on('error', (arg0) => {
-        if (!tmp13) {
-          fn2(false, diagnostics_1.classifyProbeNetworkError(arg0));
-        }
-      });
-      tmp62.on('timeout', () =>
-        fn2(
-          false,
-          '请求超时，' +
-            (Date.now() - tmp12) +
-            'ms 内未完成；可能是上游首包过慢、模型排队或网络链路阻塞'
-        )
-      );
-      tmp62.end(tmp11);
-    });
-  }
   async setStoredPatchExtensionPath(tmp02) {
     const tmp1 = typeof tmp02 === 'string' && tmp02.trim() ? tmp02.trim() : undefined;
     await this.context.globalState.update(KEY_PATCH_EXTENSION_PATH, tmp1);
@@ -565,14 +381,6 @@ class SidebarProvider {
       patchManager_1.PatchManager.loopbackApiUrl(tmp02.hybridPort),
       patchManager_1.PatchManager.loopbackApiUrl(tmp02.inferencePort)
     );
-  }
-  async isPortFree(tmp02) {
-    return new Promise((fn) => {
-      const tmp1 = net.createServer();
-      tmp1.once('error', () => fn(false));
-      tmp1.once('listening', () => tmp1.close(() => fn(true)));
-      tmp1.listen(tmp02, '127.0.0.1');
-    });
   }
   readProxyDependencyKeys() {
     const tmp02 = path.join(this.proxyManager.getProxyRootPath(), 'package.json');
@@ -622,8 +430,8 @@ class SidebarProvider {
     const tmp6 = !sidebarUtils_1.isValidCompletionTimeoutValue(tmp3.COMPLETION_TIMEOUT_MS);
     const tmp7 = this.proxyManager.portsFromConfig(tmp3);
     const tmp8 = this.proxyManager.getStatus().running;
-    const tmp9 = tmp8 ? true : await this.isPortFree(tmp7.hybridPort);
-    const tmp10 = tmp8 ? true : await this.isPortFree(tmp7.inferencePort);
+    const tmp9 = tmp8 ? true : await environmentProbe_1.isPortFree(tmp7.hybridPort);
+    const tmp10 = tmp8 ? true : await environmentProbe_1.isPortFree(tmp7.inferencePort);
     const tmp11 = [
       !tmp9 ? 'Hybrid ' + tmp7.hybridPort : '',
       !tmp10 ? 'Inference ' + tmp7.inferencePort : '',
@@ -758,91 +566,13 @@ class SidebarProvider {
       publisher: String(tmp02.publisher || ''),
     };
   }
-  readWindsurfProductInfo() {
-    const tmp02 = vscode.env.appRoot || '';
-    if (!tmp02) {
-      const tmp03 = {
-        path: '',
-        nameShort: vscode.env.appName || '',
-        version: vscode.version || '',
-        commit: '',
-        quality: '',
-      };
-      return tmp03;
-    }
-    const tmp1 = [
-      path.join(tmp02, 'product.json'),
-      path.join(path.dirname(tmp02), 'product.json'),
-      path.join(path.dirname(path.dirname(tmp02)), 'product.json'),
-    ];
-    const tmp2 = new Set();
-    for (const tmp03 of tmp1) {
-      const tmp04 = path.normalize(tmp03);
-      if (tmp2.has(tmp04)) {
-        continue;
-      }
-      tmp2.add(tmp04);
-      const tmp12 = diagnostics_1.readJsonObject(tmp04);
-      if (tmp12) {
-        return {
-          path: tmp04,
-          nameShort: String(tmp12.nameShort || tmp12.nameLong || ''),
-          version: String(tmp12.version || tmp12.codeVersion || vscode.version || ''),
-          commit: String(tmp12.commit || ''),
-          quality: String(tmp12.quality || ''),
-        };
-      }
-    }
-    const tmp3 = {
-      path: '',
-      nameShort: vscode.env.appName || '',
-      version: vscode.version || '',
-      commit: '',
-      quality: '',
-    };
-    return tmp3;
-  }
-  async getPortListeners(tmp02) {
-    if (!tmp02) {
-      return [];
-    }
-    try {
-      if (process.platform === 'win32') {
-        const tmp04 =
-          '$ids=Get-NetTCPConnection -LocalPort ' +
-          tmp02 +
-          ' -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; foreach ($ownerPid in $ids) { $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid"; if ($proc) { "$ownerPid $($proc.Name) $($proc.CommandLine)" } else { "$ownerPid" } }';
-        const tmp1 = await this.execFileText(
-          'powershell.exe',
-          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', tmp04],
-          3500
-        );
-        return tmp1
-          .split(/\r?\n/)
-          .map((arg0) => diagnostics_1.sanitizeDiagnosticText(arg0.trim()))
-          .filter(Boolean);
-      }
-      const tmp03 = await this.execFileText(
-        'lsof',
-        ['-nP', '-iTCP:' + tmp02, '-sTCP:LISTEN'],
-        3500
-      );
-      return tmp03
-        .split(/\r?\n/)
-        .map((arg0) => diagnostics_1.sanitizeDiagnosticText(arg0.trim()))
-        .filter(Boolean);
-    } catch (tmp03) {
-      const tmp1 = tmp03 instanceof Error ? tmp03.message : String(tmp03);
-      return ['读取监听进程失败：' + diagnostics_1.sanitizeDiagnosticText(tmp1)];
-    }
-  }
   async createDiagnosticReport() {
     const tmp02 = this.proxyManager.readEnvConfig();
     const tmp1 = this.proxyManager.getStatus();
     const tmp2 = this.proxyManager.portsFromConfig(tmp02);
     const tmp3 = this.getPatchStatus();
     const tmp4 = this.readExtensionPackageInfo();
-    const tmp5 = this.readWindsurfProductInfo();
+    const tmp5 = environmentProbe_1.readWindsurfProductInfo(vscode);
     const tmp6 = undefined;
     const tmp7 = [];
     let tmp8;
@@ -861,7 +591,7 @@ class SidebarProvider {
     let processLines = [];
     let processError = '';
     try {
-      processLines = (await this.readWindsurfProcessCommandLines())
+      processLines = (await environmentProbe_1.readWindsurfProcessCommandLines())
         .slice(0, 25)
         .map((arg0) =>
           diagnostics_1.sanitizeDiagnosticText(arg0.length > 800 ? arg0.slice(0, 800) + '...' : arg0)
@@ -874,8 +604,8 @@ class SidebarProvider {
       elapsedMs: 0,
       error: arg0 instanceof Error ? arg0.message : String(arg0),
     }));
-    const tmp10 = await this.getPortListeners(tmp2.hybridPort);
-    const tmp11 = await this.getPortListeners(tmp2.inferencePort);
+    const tmp10 = await environmentProbe_1.getPortListeners(tmp2.hybridPort);
+    const tmp11 = await environmentProbe_1.getPortListeners(tmp2.inferencePort);
     const tmp12 = this.logLines
       .slice(-100)
       .map((arg0) => diagnostics_1.sanitizeDiagnosticText(arg0))
@@ -1134,7 +864,7 @@ class SidebarProvider {
     }
     const tmp1 =
       "\n$targets = Get-CimInstance Win32_Process | Where-Object {\n  $_.ProcessId -ne $PID -and (\n    $_.Name -match '(?i)(language_server|codeium)' -or\n    $_.CommandLine -match '(?i)(language_server|codeium)'\n  ) -and $_.Name -notmatch '(?i)^(Devin|Windsurf|Code|Code - Insiders).exe$'\n}\n$targets | Select-Object -ExpandProperty ProcessId -Unique\n".trim();
-    const tmp2 = await this.execFileText(
+    const tmp2 = await environmentProbe_1.execFileText(
       'powershell.exe',
       ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', tmp1],
       5000
@@ -1154,7 +884,7 @@ class SidebarProvider {
       };
     }
     for (const tmp03 of tmp3) {
-      await this.execFileText('taskkill.exe', ['/PID', String(tmp03), '/T', '/F'], 5000);
+      await environmentProbe_1.execFileText('taskkill.exe', ['/PID', String(tmp03), '/T', '/F'], 5000);
     }
     const tmp4 =
       '已结束 ' +
@@ -1706,7 +1436,7 @@ class SidebarProvider {
             ...(tmp02.config && typeof tmp02.config === 'object' ? tmp02.config : {}),
           };
           const tmp1 = modelFetcher_1.normalizeProviderBaseUrl(tmp03);
-          const tmp2 = await this.probeConfiguredModelStream(tmp1);
+          const tmp2 = await environmentProbe_1.probeConfiguredModelStream(tmp1);
           const tmp3 = {
             type: 'modelProbeResult',
             result: tmp2,
