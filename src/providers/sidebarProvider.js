@@ -54,6 +54,7 @@ const externalConfigImporter_1 = require('../services/externalConfigImporter');
 const sidebarHtml_1 = require('../views/sidebarHtml');
 const gatewayUrl_1 = require('../utils/gatewayUrl');
 const sidebarTemplate_1 = require('../views/sidebarTemplate');
+const sidebarUtils_1 = require('./sidebar-utils');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH = 'windsurf-byok-plus.patchExtensionPath';
@@ -676,7 +677,7 @@ class SidebarProvider {
         );
       })
       .join('；');
-    return this.envCheckItem(
+    return sidebarUtils_1.envCheckItem(
       'model-routing',
       '模型最终路由',
       tmp1 ? 'ok' : 'warning',
@@ -720,7 +721,7 @@ class SidebarProvider {
           (tmp3 ? '/推理强度' : '') +
           ' 或改用普通 Chat。'
         : '当前默认模型未命中明显慢首包风险；Inline/Fast 仍受上游首包延迟影响。';
-    return this.envCheckItem(
+    return sidebarUtils_1.envCheckItem(
       'inline-fast-timeout',
       'Inline/Fast 超时风险',
       tmp6.length > 0 ? 'warning' : 'ok',
@@ -785,7 +786,7 @@ class SidebarProvider {
       tmp5 = await this.readWindsurfProcessCommandLines();
     } catch (tmp03) {
       const tmp12 = tmp03 instanceof Error ? tmp03.message : String(tmp03);
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'devin-process-routing',
         '进程路由参数',
         'warning',
@@ -794,7 +795,7 @@ class SidebarProvider {
       );
     }
     if (tmp5.length === 0) {
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'devin-process-routing',
         '进程路由参数',
         'ok',
@@ -807,7 +808,7 @@ class SidebarProvider {
     const tmp8 = this.getPatchStatus();
     const tmp9 = !!tmp8.path && tmp8.patches.every((arg0) => arg0.status === 'applied');
     if (tmp6 && tmp7) {
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'devin-process-routing',
         '进程路由参数',
         'ok',
@@ -826,7 +827,7 @@ class SidebarProvider {
     const tmp11 = tmp9
       ? '补丁已就绪但当前进程命令行未完整体现本地端口，建议重载/重启 Devin Desktop 后复查'
       : '补丁未完全就绪，建议先安装补丁并重载 Devin Desktop';
-    return this.envCheckItem(
+    return sidebarUtils_1.envCheckItem(
       'devin-process-routing',
       '进程路由参数',
       'warning',
@@ -838,7 +839,7 @@ class SidebarProvider {
     const tmp1 = tmp02.ANTHROPIC_API_KEY || tmp02.OPENAI_API_KEY || '';
     const tmp2 = String(tmp02.DEFAULT_MODEL || '').trim();
     if (!tmp1) {
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'model-catalog',
         '模型权限',
         'warning',
@@ -852,7 +853,7 @@ class SidebarProvider {
       const tmp22 = tmp12.filter((arg0) => /opus/i.test(arg0));
       const tmp3 = this.modelIdMatches(tmp12, tmp2);
       if (tmp12.length === 0) {
-        return this.envCheckItem(
+        return sidebarUtils_1.envCheckItem(
           'model-catalog',
           '模型权限',
           'warning',
@@ -867,7 +868,7 @@ class SidebarProvider {
         tmp22.length > 0
           ? 'Opus 可见：' + tmp22.slice(0, 3).join(', ')
           : 'Opus 未在模型列表中，选择 Opus 可能失败或无可用返回';
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'model-catalog',
         '模型权限',
         !tmp3 || tmp22.length === 0 ? 'warning' : 'ok',
@@ -876,7 +877,7 @@ class SidebarProvider {
       );
     } catch (tmp03) {
       const tmp12 = tmp03 instanceof Error ? tmp03.message : String(tmp03);
-      return this.envCheckItem(
+      return sidebarUtils_1.envCheckItem(
         'model-catalog',
         '模型权限',
         'warning',
@@ -1117,30 +1118,6 @@ class SidebarProvider {
       patchManager_1.PatchManager.loopbackApiUrl(tmp02.inferencePort)
     );
   }
-  envCheckItem(tmp02, tmp1, tmp2, tmp3, tmp4) {
-    const tmp5 = {
-      id: tmp02,
-      name: tmp1,
-      status: tmp2,
-      detail: tmp3,
-      fixable: tmp4,
-    };
-    return tmp5;
-  }
-  isValidPortValue(tmp02) {
-    if (!tmp02) {
-      return true;
-    }
-    const tmp1 = Number.parseInt(tmp02, 10);
-    return Number.isInteger(tmp1) && tmp1 > 0 && tmp1 <= 65535;
-  }
-  isValidCompletionTimeoutValue(tmp02) {
-    if (!tmp02) {
-      return true;
-    }
-    const tmp1 = Number.parseInt(tmp02, 10);
-    return Number.isInteger(tmp1) && tmp1 >= 2000 && tmp1 <= 60000;
-  }
   async isPortFree(tmp02) {
     return new Promise((fn) => {
       const tmp1 = net.createServer();
@@ -1174,7 +1151,7 @@ class SidebarProvider {
     const requiredFiles = ['package.json', 'src/hybrid-server.js', 'src/inference-proxy.js'];
     const tmp4 = requiredFiles.filter((arg0) => !fs.existsSync(path.join(tmp1, arg0)));
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'proxy-root',
         '内置代理目录',
         tmp4.length === 0 ? 'ok' : 'error',
@@ -1183,7 +1160,7 @@ class SidebarProvider {
       )
     );
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'env-file',
         '配置文件',
         fs.existsSync(tmp2) ? 'ok' : 'warning',
@@ -1192,9 +1169,9 @@ class SidebarProvider {
       )
     );
     const tmp5 = ['HYBRID_PORT', 'INFERENCE_PORT'].filter(
-      (arg0) => !this.isValidPortValue(tmp3[arg0])
+      (arg0) => !sidebarUtils_1.isValidPortValue(tmp3[arg0])
     );
-    const tmp6 = !this.isValidCompletionTimeoutValue(tmp3.COMPLETION_TIMEOUT_MS);
+    const tmp6 = !sidebarUtils_1.isValidCompletionTimeoutValue(tmp3.COMPLETION_TIMEOUT_MS);
     const tmp7 = this.proxyManager.portsFromConfig(tmp3);
     const tmp8 = this.proxyManager.getStatus().running;
     const tmp9 = tmp8 ? true : await this.isPortFree(tmp7.hybridPort);
@@ -1204,7 +1181,7 @@ class SidebarProvider {
       !tmp10 ? 'Inference ' + tmp7.inferencePort : '',
     ].filter(Boolean);
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'ports',
         '代理端口',
         tmp5.length > 0 || tmp11.length > 0 ? 'warning' : 'ok',
@@ -1217,7 +1194,7 @@ class SidebarProvider {
       )
     );
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'completion-timeout',
         '补全超时配置',
         tmp6 ? 'warning' : 'ok',
@@ -1230,7 +1207,7 @@ class SidebarProvider {
     const tmp12 = this.readProxyDependencyKeys();
     const tmp13 = path.join(tmp1, 'node_modules');
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'runtime-deps',
         '运行依赖',
         tmp12 === undefined
@@ -1259,7 +1236,7 @@ class SidebarProvider {
     const tmp20 =
       tmp17 || tmp18 || tmp3.OPENAI_THINKING_ENABLED === 'true' || /-thinking$/i.test(tmp14);
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'reasoning',
         '思考强度',
         tmp19 ? 'ok' : 'warning',
@@ -1274,7 +1251,7 @@ class SidebarProvider {
       )
     );
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'api-key',
         'API Key',
         tmp3.ANTHROPIC_API_KEY || tmp3.OPENAI_API_KEY ? 'ok' : 'warning',
@@ -1288,7 +1265,7 @@ class SidebarProvider {
     tmp02.push(await this.checkGatewayModelCatalog(tmp3));
     const tmp21 = this.proxyManager.getDefaultSystemPromptFilePath();
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'system-prompt',
         '默认提示词',
         fs.existsSync(tmp21) ? 'ok' : 'warning',
@@ -1301,7 +1278,7 @@ class SidebarProvider {
     const tmp24 = !!tmp22.path && tmp23.length > 0;
     const tmp25 = tmp23.map((arg0) => arg0.name + '=' + arg0.status).join('；');
     tmp02.push(
-      this.envCheckItem(
+      sidebarUtils_1.envCheckItem(
         'devin-patch',
         'Devin Desktop 补丁',
         tmp23.length === 0 ? 'ok' : 'warning',
@@ -1324,16 +1301,6 @@ class SidebarProvider {
       items: tmp02,
     };
   }
-  redactSecret(tmp02) {
-    const tmp1 = String(tmp02 || '').trim();
-    if (!tmp1) {
-      return '';
-    }
-    if (tmp1.length <= 8) {
-      return tmp1.slice(0, 2) + '***(' + tmp1.length + ')';
-    }
-    return tmp1.slice(0, 4) + '...' + tmp1.slice(-4) + '(' + tmp1.length + ')';
-  }
   sanitizeDiagnosticText(tmp02) {
     return String(tmp02 || '')
       .replace(
@@ -1345,7 +1312,7 @@ class SidebarProvider {
   sanitizeEnvConfig(tmp02) {
     const tmp1 = {};
     for (const [tmp03, tmp12] of Object.entries(tmp02)) {
-      tmp1[tmp03] = /KEY|TOKEN|SECRET|PASSWORD/i.test(tmp03) ? this.redactSecret(tmp12) : tmp12;
+      tmp1[tmp03] = /KEY|TOKEN|SECRET|PASSWORD/i.test(tmp03) ? sidebarUtils_1.redactSecret(tmp12) : tmp12;
     }
     return tmp1;
   }
@@ -1452,12 +1419,6 @@ class SidebarProvider {
       return ['读取监听进程失败：' + this.sanitizeDiagnosticText(tmp1)];
     }
   }
-  jsonBlock(tmp02) {
-    return '```json\n' + JSON.stringify(tmp02, null, 2) + '\n```';
-  }
-  textBlock(tmp02) {
-    return '```text\n' + (tmp02 || '无') + '\n```';
-  }
   async createDiagnosticReport() {
     const tmp02 = this.proxyManager.readEnvConfig();
     const tmp1 = this.proxyManager.getStatus();
@@ -1475,7 +1436,7 @@ class SidebarProvider {
       tmp8 = {
         ok: false,
         checkedAt: new Date().toLocaleString(),
-        items: [this.envCheckItem('environment-check', '环境检测', 'error', tmp19, false)],
+        items: [sidebarUtils_1.envCheckItem('environment-check', '环境检测', 'error', tmp19, false)],
       };
     }
     let processLines = [];
@@ -1510,7 +1471,7 @@ class SidebarProvider {
       balance: typeof tmp6?.balance === 'number' ? tmp6.balance : null,
       status: tmp6?.status || '',
       apiKeyCount: tmp7.length,
-      selectedKey: this.redactSecret(tmp02.ANTHROPIC_API_KEY || tmp02.OPENAI_API_KEY || ''),
+      selectedKey: sidebarUtils_1.redactSecret(tmp02.ANTHROPIC_API_KEY || tmp02.OPENAI_API_KEY || ''),
     };
     const tmp15 = {
       appName: vscode.env.appName,
@@ -1536,7 +1497,7 @@ class SidebarProvider {
       '生成时间：' + new Date().toLocaleString(),
       '',
       '## 版本与宿主',
-      this.jsonBlock({
+      sidebarUtils_1.jsonBlock({
         extension: tmp4,
         host: tmp15,
         devinProduct: tmp5,
@@ -1548,26 +1509,26 @@ class SidebarProvider {
       }),
       '',
       '## 代理状态',
-      this.jsonBlock({
+      sidebarUtils_1.jsonBlock({
         status: tmp1,
         lastStartError: this.proxyManager.getLastStartError(),
         lastStartWarning: this.proxyManager.getLastStartWarning(),
       }),
       '',
       '## 配置快照（已脱敏）',
-      this.jsonBlock(this.sanitizeEnvConfig(tmp02)),
+      sidebarUtils_1.jsonBlock(this.sanitizeEnvConfig(tmp02)),
       '',
       '## API Key 配置',
-      this.jsonBlock(tmp14),
+      sidebarUtils_1.jsonBlock(tmp14),
       '',
       '## 补丁状态',
-      this.jsonBlock(tmp3),
+      sidebarUtils_1.jsonBlock(tmp3),
       '',
       '## 端口监听',
-      this.jsonBlock(tmp18),
+      sidebarUtils_1.jsonBlock(tmp18),
       '',
       '## 网关连通',
-      this.jsonBlock({
+      sidebarUtils_1.jsonBlock({
         host: '',
         health: tmp9,
       }),
@@ -1576,9 +1537,9 @@ class SidebarProvider {
       tmp13 || '无检测项',
       '',
       '## Devin Desktop / Codeium 进程',
-      processError ? this.textBlock(processError) : this.textBlock(processLines.join('\n')),
+      processError ? sidebarUtils_1.textBlock(processError) : sidebarUtils_1.textBlock(processLines.join('\n')),
       '## 最近 100 行日志',
-      this.textBlock(tmp12),
+      sidebarUtils_1.textBlock(tmp12),
       '',
     ].join('\n');
   }
@@ -1603,10 +1564,10 @@ class SidebarProvider {
     tmp2.ANTHROPIC_API_HOST = tmp2.ANTHROPIC_API_HOST || '';
     tmp2.ANTHROPIC_API_PATH = tmp2.ANTHROPIC_API_PATH || '/v1/messages';
     tmp2.OPENAI_API_PATH = tmp2.OPENAI_API_PATH || '/v1/responses';
-    if (!this.isValidPortValue(tmp2.HYBRID_PORT)) {
+    if (!sidebarUtils_1.isValidPortValue(tmp2.HYBRID_PORT)) {
       tmp2.HYBRID_PORT = '3006';
     }
-    if (!this.isValidPortValue(tmp2.INFERENCE_PORT)) {
+    if (!sidebarUtils_1.isValidPortValue(tmp2.INFERENCE_PORT)) {
       tmp2.INFERENCE_PORT = '3001';
     }
     tmp2.MAX_TOKENS = tmp2.MAX_TOKENS || '16384';
@@ -1632,7 +1593,7 @@ class SidebarProvider {
     if (!['true', 'false'].includes(tmp2.OPENAI_THINKING_ENABLED || 'false')) {
       tmp2.OPENAI_THINKING_ENABLED = 'false';
     }
-    if (!this.isValidCompletionTimeoutValue(tmp2.COMPLETION_TIMEOUT_MS)) {
+    if (!sidebarUtils_1.isValidCompletionTimeoutValue(tmp2.COMPLETION_TIMEOUT_MS)) {
       tmp2.COMPLETION_TIMEOUT_MS = '12000';
     }
     this.proxyManager.writeEnvConfig(tmp2);
@@ -1697,9 +1658,6 @@ class SidebarProvider {
       await (0, reloadWorkbench_1.reloadWorkbenchWindow)();
     }
   }
-  shellQuote(tmp02) {
-    return "'" + tmp02.replace(/'/g, "'\\''") + "'";
-  }
   runDetachedCacheCleaner(tmp02) {
     if (process.platform === 'win32') {
       (0, child_process_1.spawn)('cmd.exe', ['/c', 'start', '', tmp02], {
@@ -1715,7 +1673,7 @@ class SidebarProvider {
         [
           '-e',
           'tell application "Terminal" to do script "sh ' +
-            this.shellQuote(tmp02).replace(/"/g, '\\"') +
+            sidebarUtils_1.shellQuote(tmp02).replace(/"/g, '\\"') +
             '"',
         ],
         {
