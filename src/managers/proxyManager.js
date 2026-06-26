@@ -381,6 +381,48 @@ class ProxyManager {
       this.log(tmp1 + " 端口 " + tmp0 + " 未发现监听进程");
     }
   }
+  /**
+   * 回收本扩展的孤儿代理进程（PPID=1，父进程已退出后被 init 接管）。
+   * 只杀命令行匹配 proxy-scripts/src/(inference-proxy|hybrid-server).js 且 PPID=1 的进程。
+   * 排除当前自有子进程。
+   */
+  reapOrphanedProxies() {
+    if (process.platform === "win32") {
+      return; // Windows 无 PPID=1 孤儿概念
+    }
+    const ownPids = new Set();
+    if (this.hybridProcess?.pid) {
+      ownPids.add(this.hybridProcess.pid);
+    }
+    if (this.inferenceProcess?.pid) {
+      ownPids.add(this.inferenceProcess.pid);
+    }
+    try {
+      const output = (0, child_process_1.execSync)(
+        "ps -eo pid,ppid,command | grep -E 'proxy-scripts/src/(inference-proxy|hybrid-server)\\.js' | grep -v grep",
+        { encoding: "utf-8", timeout: 3000 }
+      );
+      let reaped = 0;
+      for (const line of output.split(/\r?\n/)) {
+        const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+        if (!match) continue;
+        const pid = Number(match[1]);
+        const ppid = Number(match[2]);
+        if (ownPids.has(pid)) continue;
+        if (ppid !== 1) continue; // 只清理真正的孤儿（PPID=1）
+        try {
+          process.kill(pid, "SIGTERM");
+          reaped++;
+          this.log("已回收孤儿代理进程 PID " + pid + " (cmd: " + match[3].slice(0, 80) + ")");
+        } catch {}
+      }
+      if (reaped > 0) {
+        this.log("共回收 " + reaped + " 个孤儿代理进程");
+      }
+    } catch {
+      // ps/grep 找不到匹配行时会 exit(1)，忽略
+    }
+  }
   async waitForPortBound(port, childProcess, label, timeoutMs = 5000, readyCheck) {
     const startDeadline = Date.now();
     while (Date.now() - startDeadline < timeoutMs) {
@@ -772,6 +814,8 @@ class ProxyManager {
   }
   async start(tmp0 = "both", tmp1) {
     this.clearStartMessages();
+    // 启动前清理本扩展遗留的孤儿进程，防止端口冲突和僵尸累积
+    this.reapOrphanedProxies();
     if (this.hybridProcess) {
       this.log("代理已在运行中");
       return true;
@@ -833,7 +877,7 @@ class ProxyManager {
         PROXY_DEVICE_ID: this.deviceId,
         PROXY_CLIENT_VERSION: this.clientVersion
       },
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe", "ipc"]
     });
     const tmp8 = this.hybridProcess;
     this.hybridProcess.stdout?.on("data", arg0 => {
@@ -914,12 +958,9 @@ class ProxyManager {
           tmp6 = tmp23;
           tmp03 = tmp23;
           this.activeInferencePort = tmp23;
-          const tmp32 = {
-            ...tmp3,
-            INFERENCE_PORT: String(tmp23)
-          };
-          this.writeEnvConfig(tmp32);
-          this.setStartWarning("Inference 端口 " + tmp04 + " 已被占用" + (tmp13 ? "（" + tmp13 + "）" : "") + "，已自动切换到 " + tmp23 + " 并继续启动内联补全代理");
+          // 回退端口仅作用于本次运行态，不持久化写回 .env，
+          // 否则下次启动会从让步后的端口继续递增（端口号单调爬升 bug）。
+          this.setStartWarning("Inference 端口 " + tmp04 + " 已被占用" + (tmp13 ? "（" + tmp13 + "）" : "") + "，本次已自动切换到 " + tmp23 + "（基准端口配置保持不变）并继续启动内联补全代理");
         }
         let tmp12 = false;
         this.inferenceProcess = (0, child_process_1.spawn)("node", [tmp02], {
@@ -931,7 +972,7 @@ class ProxyManager {
             PROXY_DEVICE_ID: this.deviceId,
             PROXY_CLIENT_VERSION: this.clientVersion
           },
-          stdio: ["ignore", "pipe", "pipe"]
+          stdio: ["ignore", "pipe", "pipe", "ipc"]
         });
         const tmp22 = this.inferenceProcess;
         this.inferenceProcess.stdout?.on("data", arg0 => {

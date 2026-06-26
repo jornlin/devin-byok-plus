@@ -358,6 +358,7 @@ function handleRequest(arg0, arg1) {
   });
 }
 const server = http.createServer(handleRequest);
+let serverV6 = null;
 server.on("connection", arg0 => {
   arg0.setNoDelay(true);
 });
@@ -481,7 +482,7 @@ if (tmp0.length === 1) {
 } else {
   server.listen(PORT, tmp0[0], () => {});
   server.on("error", onHybridError);
-  const serverV6 = http.createServer(handleRequest);
+  serverV6 = http.createServer(handleRequest);
   serverV6.on("connection", arg0 => {
     arg0.setNoDelay(true);
   });
@@ -489,3 +490,29 @@ if (tmp0.length === 1) {
   serverV6.listen(PORT, tmp0[1], printHybridReady);
   serverV6.on("error", onHybridError);
 }
+let shuttingDown = false;
+function shutdown(arg0) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  console.log("[" + now() + "] hybrid-server 收到 " + arg0 + "，正在关闭...");
+  try {
+    server.close();
+  } catch {}
+  try {
+    mitmServer.close();
+  } catch {}
+  if (serverV6) {
+    try {
+      serverV6.close();
+    } catch {}
+  }
+  const tmp1 = setTimeout(() => process.exit(0), 1500);
+  tmp1.unref?.();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGHUP", () => shutdown("SIGHUP"));
+// 父进程（扩展宿主）断开 IPC 通道时自杀，避免成为孤儿进程
+process.on("disconnect", () => shutdown("disconnect"));

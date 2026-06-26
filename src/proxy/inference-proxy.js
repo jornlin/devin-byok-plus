@@ -260,6 +260,7 @@ function adaptStreamForHandler(arg0, arg1, arg2, arg3) {
   }
 }
 const server = http2.createServer();
+let serverV6 = null;
 function attachInferenceStreamHandler(arg0) {
   arg0.on("stream", (arg02, arg1) => {
     const tmp2 = ++reqCount;
@@ -339,8 +340,31 @@ if (tmp0.length === 1) {
 } else {
   server.listen(PORT, tmp0[0], () => {});
   server.on("error", onInferenceError);
-  const serverV6 = http2.createServer();
+  serverV6 = http2.createServer();
   attachInferenceStreamHandler(serverV6);
   serverV6.listen(PORT, tmp0[1], printInferenceReady);
   serverV6.on("error", onInferenceError);
 }
+let shuttingDown = false;
+function shutdown(arg0) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  console.log("[" + now() + "] inference-proxy 收到 " + arg0 + "，正在关闭...");
+  try {
+    server.close();
+  } catch {}
+  if (serverV6) {
+    try {
+      serverV6.close();
+    } catch {}
+  }
+  const tmp1 = setTimeout(() => process.exit(0), 1500);
+  tmp1.unref?.();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGHUP", () => shutdown("SIGHUP"));
+// 父进程（扩展宿主）断开 IPC 通道时自杀，避免成为孤儿进程
+process.on("disconnect", () => shutdown("disconnect"));
