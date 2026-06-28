@@ -21,6 +21,7 @@
 ## [Unreleased]
 
 ### Fixed
+- 工具调用中途断流时增加自动重试：上游（如 Bedrock/Sub2API 网关）在 `tool_use` 参数流式传输中途断开时，`AnthropicStreamProcessor` 现会检测被截断的非法 JSON 参数，**不再发出残缺的工具调用**；并区分两种情况——若尚未向客户端写入任何可见内容则自动重试上游（复用现有退避/熔断逻辑，受 `MAX_RETRIES`/`ENABLE_RETRY` 控制），否则以明确错误结束而非崩溃或发出错误的编辑。
 - 修复流式 tool_use 参数被截断时整个代理进程崩溃退出（`TypeError: Cannot create property 'old_string' on string`）：当上游 SSE 在工具调用中途断流、`arguments` 为非法/截断 JSON 时，`normalizeToolArguments` 会原样返回字符串，随后 `remapKey` 在字符串上写属性而抛错并使 hybrid-server 退出重启。现 `normalizeToolInvocation` 在参数非普通对象时跳过键重映射并原样返回，`remapKey`/`remapArrayKey` 增加类型守卫作为兜底。
 - 修复 AmazonQ/Bedrock 报错 `TOOL_CONFIG_MISSING`（"The toolConfig field must be defined when using toolUse and toolResult content blocks"）：当历史消息含 `tool_use`/`tool_result` 内容块、但本次请求未携带工具定义时（工具被 KNOWN_TOOL 过滤丢弃或后续轮次未重发），代理会依据历史出现的工具名合成最小占位工具定义，确保 Bedrock 必需的 `toolConfig` 字段被填充；合成的占位工具不会强制 `tool_choice`。
 

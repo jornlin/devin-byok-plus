@@ -1022,6 +1022,24 @@ function streamAnthropic(arg0, arg1, {
         processPart(sseBuffer);
         sseBuffer = "";
       }
+      // 上游在工具调用中途断流 ⇒ tool_use 参数被截断。不能发出残缺工具调用：
+      // 若尚未向客户端写入任何可见内容，则重试上游；否则以明确错误结束（避免重复输出）。
+      if (processor.hasTruncatedToolCall && !tmp18.wasClosedByClient()) {
+        const toolLabel = processor.truncatedToolName || "unknown";
+        if (!processor.hasEmittedOutput && shouldRetryTruncatedToolCall(retryCount)) {
+          console.warn("  ↩️  Truncated tool_use \"" + toolLabel + "\" with no prior output — retrying upstream");
+          circuitBreaker.recordFailure();
+          retryAnthropicRequest(arg0, arg1, {
+            systemPrompt: tmp2, messages: tmp3, tools: tmp4, toolChoice: tmp5,
+            resolvedModel: tmp6, messageId: tmp7, timing: tmp8, monitorTargetId: tmp9,
+            thinkingOptions: tmp10, byokSlot: tmp11
+          }, retryCount, 0, { code: "ETRUNCATED", truncatedTool: toolLabel });
+          return;
+        }
+        circuitBreaker.recordFailure();
+        tmp18.fail("[Anthropic Truncated Tool Call] 上游在调用工具 \"" + toolLabel + "\" 时中途断流，参数不完整。已重试 " + retryCount + " 次仍失败，请重试或检查上游网关稳定性。");
+        return;
+      }
       if (!processor.isDone && !arg1.writableEnded) {
         console.log("  ⚠️  Anthropic stream ended without message_stop — forcing stop");
         const tmp02 = processor.processEvent({
@@ -1100,6 +1118,15 @@ function streamAnthropic(arg0, arg1, {
   if (tmp8) {
     tmp8.mark("upstream_request_sent");
   }
+}
+
+// 判断截断的工具调用是否应该重试上游（独立于网络层重试判断，因为这不是网络错误）
+function shouldRetryTruncatedToolCall(retryCount) {
+  if (process.env.ENABLE_RETRY === "false") {
+    return false;
+  }
+  const MAX_RETRIES = parseInt(process.env.MAX_RETRIES || "3", 10);
+  return retryCount < MAX_RETRIES;
 }
 
 // 判断是否应该重试 Anthropic 请求

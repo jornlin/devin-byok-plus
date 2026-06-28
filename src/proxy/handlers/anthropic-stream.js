@@ -55,6 +55,21 @@ export function parseSSEChunk(arg0) {
   return tmp1;
 }
 
+// 判断 tool_use 的参数缓冲区是否被截断：
+// 空缓冲区视为合法（等价于无参数 {}）；非空但无法解析为 JSON ⇒ 上游中途断流导致截断。
+export function isTruncatedToolArgs(raw) {
+  const s = String(raw ?? "").trim();
+  if (s === "") {
+    return false;
+  }
+  try {
+    JSON.parse(s);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export class AnthropicStreamProcessor {
     constructor(tmp0, tmp1, tmp2 = null) {
         this._messageId = tmp0;
@@ -73,6 +88,11 @@ export class AnthropicStreamProcessor {
         this._capturingToolText = false;
         this._capturedToolText = "";
         this._emittedToolCall = false;
+        // 上游在工具调用中途断流时，tool_use 的参数 JSON 会被截断；此时不发出残缺工具调用，转交 chat.js 决定重试
+        this._truncatedToolCall = false;
+        this._truncatedToolName = null;
+        // 是否已向客户端发出任何可见内容（文本/思考/工具调用）；用于判断截断后能否安全重试
+        this._emittedAnyOutput = false;
     }
 
     processEvent(tmp0) {
@@ -115,6 +135,20 @@ export class AnthropicStreamProcessor {
         return this._stopReason;
     }
 
+    // 上游在工具调用中途断流，导致 tool_use 参数 JSON 被截断
+    get hasTruncatedToolCall() {
+        return this._truncatedToolCall;
+    }
+
+    get truncatedToolName() {
+        return this._truncatedToolName;
+    }
+
+    // 是否已向客户端发出任何可见内容；截断后据此判断重试是否安全（避免重复输出）
+    get hasEmittedOutput() {
+        return this._emittedAnyOutput;
+    }
+
     _onContentBlockStart(tmp0, tmp1) {
         const tmp2 = tmp0?.content_block;
         if (!tmp2) {
@@ -139,6 +173,7 @@ export class AnthropicStreamProcessor {
         if (tmp2.type === "text_delta" && tmp2.text) {
             this._handleTextDelta(tmp2.text, tmp1);
         } else if (tmp2.type === "thinking_delta" && tmp2.thinking) {
+            this._emittedAnyOutput = true;
             tmp1.push(buildThinkingDelta(this._messageId, tmp2.thinking));
         } else if (tmp2.type === "input_json_delta" && tmp2.partial_json != null) {
             this._toolArgsBuffer += tmp2.partial_json;
@@ -151,6 +186,19 @@ export class AnthropicStreamProcessor {
         if (this._currentBlockType === "text") {
             this._flushBufferedText(tmp1, true);
         } else if (this._currentBlockType === "tool_use") {
+            // 检测被截断的工具参数：缓冲区非空但不是合法 JSON ⇒ 上游在工具调用中途断流
+            const rawArgs = this._toolArgsBuffer ?? "";
+            if (isTruncatedToolArgs(rawArgs)) {
+                console.error("  ❌ Truncated tool_use arguments for \"" + (this._toolName || "unknown") + "\" (" + rawArgs.length + " bytes, invalid JSON) — not emitting partial call");
+                this._truncatedToolCall = true;
+                this._truncatedToolName = this._toolName || null;
+                this._toolId = null;
+                this._toolName = null;
+                this._toolArgsBuffer = "";
+                this._currentBlockType = null;
+                this._currentBlockIndex = -1;
+                return;
+            }
             const tmp02 = normalizeToolInvocation(this._toolName ?? "", this._toolArgsBuffer);
             if (!tmp02.toolName) {
                 this._restoreInterceptedText(tmp1);
@@ -167,6 +215,7 @@ export class AnthropicStreamProcessor {
             tmp1.push(buildToolCallDelta(this._messageId, [tmp12]));
             emitToolCall(tmp12.name, tmp12.arguments_json, tmp12.id, this._targetId);
             this._emittedToolCall = true;
+            this._emittedAnyOutput = true;
             this._toolId = null;
             this._toolName = null;
             this._toolArgsBuffer = "";
@@ -193,6 +242,7 @@ export class AnthropicStreamProcessor {
                 for (const tmp04 of tmp03) {
                     emitToolCall(tmp04.name, tmp04.arguments_json, tmp04.id, this._targetId);
                 }
+                this._emittedAnyOutput = true;
                 this._stopReason = "tool_use";
             } else {
                 this._restoreInterceptedText(tmp0);
@@ -241,6 +291,7 @@ export class AnthropicStreamProcessor {
             return;
         }
         this._tokenCount++;
+        this._emittedAnyOutput = true;
         tmp1.push(buildTextDelta(this._messageId, tmp0, this._tokenCount));
         emitAIText(tmp0, true, this._targetId);
     }
