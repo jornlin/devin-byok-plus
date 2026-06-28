@@ -5,6 +5,24 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Fixed
+- 修复 AmazonQ/Bedrock 报错 `TOOL_CONFIG_MISSING`（"The toolConfig field must be defined when using toolUse and toolResult content blocks"）：当历史消息含 `tool_use`/`tool_result` 内容块、但本次请求未携带工具定义时（工具被 KNOWN_TOOL 过滤丢弃或后续轮次未重发），代理会依据历史出现的工具名合成最小占位工具定义，确保 Bedrock 必需的 `toolConfig` 字段被填充；合成的占位工具不会强制 `tool_choice`。
+
+## [2.1.1] - 2026-06-26
+
+### Added
+- 标签页式 UI 重构：全新的 3 标签页布局（配置连接、控制状态、系统补丁）
+- 快捷键支持：Cmd/Ctrl + 1/2/3 快速切换标签页
+- 智能配置徽章：自动检测配置完整性并实时提示
+- 淡入淡出动画：流畅的标签页切换体验（0.2s ease-in-out）
+- 响应式优化：完整的小屏幕适配（≤400px）
+- 视觉增强：底部激活指示条、彩色条纹边框、改进阴影效果
+- Provider 模块化拆分：抽离 services/ 服务模块（diagnostics、environmentProbe、modelFetcher、promptTemplates、thinkingEffort），Provider 代码量 -32%
+- 视图模块化：侧栏 HTML 拆分为 templates/partials，HTML 模板纳入 VSIX 打包
+- 基于上游 v2.1.0 + v2.0.4，包含配置热重载修复、模型验证增强、静默自动保存
+
 ## [2.1.1] - 2026-06-18
 
 ### Added

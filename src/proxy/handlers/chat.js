@@ -15,11 +15,11 @@ import { buildGatewayCapabilityKey, getGatewayCapability, markGatewayCapability 
 import { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
 import { isRetriableError, calculateRetryDelay, isTimeoutError, serviceCircuitBreakers } from "../retry-utils.js";
 export { isResponsesApiPath, shouldFallbackToChatCompletions, toChatCompletionsMessages, toChatCompletionsPath } from "./openai-request.js";
-export { requiresConfiguredDefaultModel };
+export { requiresConfiguredDefaultModel, synthesizeToolsFromMessages, collectToolUseNames };
 const keepAliveAgent = new https.Agent({
   keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 10,
+  keepAliveMsecs: 60000,
+  maxSockets: 30,
   maxFreeSockets: 5
 });
 const PROXY_DEVICE_ID = process.env.PROXY_DEVICE_ID || "";
@@ -798,6 +798,58 @@ function attachOpenAISseStream(arg02, {
     tmp24.fail("[Stream Error]");
   });
 }
+// 从历史消息中收集所有 tool_use 名称，用于在缺失工具定义时补齐 Bedrock 所需的 toolConfig
+function collectToolUseNames(messages) {
+  const names = new Set();
+  let hasToolBlock = false;
+  for (const msg of messages || []) {
+    if (!msg || !Array.isArray(msg.content)) {
+      continue;
+    }
+    for (const block of msg.content) {
+      if (!block || typeof block !== "object") {
+        continue;
+      }
+      if (block.type === "tool_use") {
+        hasToolBlock = true;
+        if (block.name) {
+          names.add(String(block.name));
+        }
+      } else if (block.type === "tool_result") {
+        hasToolBlock = true;
+      }
+    }
+  }
+  return { names: [...names], hasToolBlock };
+}
+
+// 当请求未携带工具定义、但历史消息含 tool_use/tool_result 时，
+// 依据历史中出现的工具名合成最小工具定义，避免 Bedrock 报 TOOL_CONFIG_MISSING
+function synthesizeToolsFromMessages(messages, existingTools) {
+  if (existingTools && existingTools.length > 0) {
+    return existingTools;
+  }
+  const { names, hasToolBlock } = collectToolUseNames(messages);
+  if (!hasToolBlock) {
+    return existingTools;
+  }
+  // 历史中存在 tool_use/tool_result，但当前请求无工具定义 → 合成占位工具定义
+  const synthesized = names.map(name => ({
+    name,
+    description: "",
+    input_schema: {
+      type: "object",
+      properties: {},
+      additionalProperties: true
+    }
+  }));
+  if (synthesized.length === 0) {
+    return existingTools;
+  }
+  console.warn("  ⚠️  Synthesized " + synthesized.length + " tool definition(s) from history for Bedrock toolConfig compatibility: [" + names.join(", ") + "]");
+  return synthesized;
+}
+
 function streamAnthropic(arg0, arg1, {
   systemPrompt: tmp2,
   messages: tmp3,
@@ -811,7 +863,9 @@ function streamAnthropic(arg0, arg1, {
   byokSlot: tmp11 = null
 }, retryCount = 0) {
   const tmp12 = getProviderConfig(tmp11).anthropic;
-  const tmp13 = getForwardedToolChoice(tmp4, tmp5, "Anthropic");
+  // 补齐工具定义：历史含 tool_use/tool_result 但本次未带 tools 时，合成占位定义以满足 Bedrock toolConfig 要求
+  const effectiveTools = synthesizeToolsFromMessages(tmp3, tmp4);
+  const tmp13 = getForwardedToolChoice(effectiveTools, tmp5, "Anthropic");
   const tmp14 = {
     model: tmp6,
     system: tmp2 || undefined,
@@ -819,9 +873,10 @@ function streamAnthropic(arg0, arg1, {
     stream: true,
     max_tokens: getMaxTokens()
   };
-  if (tmp4 && tmp4.length > 0) {
-    tmp14.tools = tmp4;
-    if (tmp13) {
+  if (effectiveTools && effectiveTools.length > 0) {
+    tmp14.tools = effectiveTools;
+    // 仅在本次请求真正携带工具时转发 tool_choice，合成占位工具不应强制模型调用
+    if (tmp13 && tmp4 && tmp4.length > 0) {
       tmp14.tool_choice = tmp13;
     }
   }
