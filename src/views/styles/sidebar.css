@@ -833,8 +833,8 @@
 
   .profile-list {
     @apply flex flex-col;
-    max-height: 180px;
-    @apply overflow-y-auto;
+    /* 不设置 max-height，让列表自然扩展，交给外层侧栏统一滚动
+       方案数量较多时（>10 条）才在超出视口时启用局部滚动 */
   }
 
   .profile-item {
