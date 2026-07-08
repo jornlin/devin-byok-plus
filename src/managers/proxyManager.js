@@ -72,6 +72,14 @@ class ProxyManager {
     this.updateStatusBar();
     this.statusBar.show();
     tmp0.subscriptions.push(this.statusBar);
+    this.balanceStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    this.balanceStatusBar.command = "devin-byok-plus.refreshBalance";
+    this.balanceStatusBar.text = "$(credit-card) 余额: --";
+    this.balanceStatusBar.tooltip = "点击刷新 API 余额";
+    this.balanceStatusBar.show();
+    tmp0.subscriptions.push(this.balanceStatusBar);
+    this.balanceTimer = null;
+    this.startBalanceTimer();
     this.refreshExternalProxyStatus();
   }
   updateStatusBar() {
@@ -1099,7 +1107,74 @@ class ProxyManager {
       requestCount: this.requestCount
     };
   }
+  async fetchApiBalance() {
+    this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
+    const cfg = this.readEnvConfig();
+    const host = (cfg.BYOK1_OPENAI_API_HOST || cfg.BYOK1_ANTHROPIC_API_HOST || cfg.OPENAI_API_HOST || cfg.ANTHROPIC_API_HOST || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const key = cfg.BYOK1_OPENAI_API_KEY || cfg.BYOK1_ANTHROPIC_API_KEY || cfg.OPENAI_API_KEY || cfg.ANTHROPIC_API_KEY || '';
+    if (!host || !key) {
+      this.balanceStatusBar.text = "$(credit-card) 余额: 未配置";
+      this.balanceStatusBar.tooltip = "请先配置 API Host 和 Key\n点击刷新";
+      return;
+    }
+    const https = require('https');
+    const http = require('http');
+    const useHttp = host.startsWith('localhost') || host.startsWith('127.');
+    const endpoints = ["/v1/dashboard/billing/credit_grants", "/v1/user/balance", "/dashboard/billing/credit_grants"];
+    for (const ep of endpoints) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const mod = useHttp ? http : https;
+          const req = mod.request({
+            hostname: host.split(':')[0],
+            port: host.includes(':') ? parseInt(host.split(':')[1]) : (useHttp ? 80 : 443),
+            path: ep,
+            method: 'GET',
+            rejectUnauthorized: false,
+            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
+          }, res => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+              if (res.statusCode === 200) resolve(data);
+              else reject(new Error('status ' + res.statusCode));
+            });
+          });
+          req.on('error', reject);
+          req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+          req.end();
+        });
+        const json = JSON.parse(result);
+        let balance = null;
+        if (json.total_available != null) balance = json.total_available;
+        else if (json.balance != null) balance = json.balance;
+        else if (json.data?.total_available != null) balance = json.data.total_available;
+        else if (json.data?.balance != null) balance = json.data.balance;
+        if (balance != null) {
+          const fmt = typeof balance === 'number' ? balance.toFixed(2) : balance;
+          const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          this.balanceStatusBar.text = `$(credit-card) 余额: ${fmt}`;
+          this.balanceStatusBar.tooltip = `API 余额: ${fmt}\n来自: ${host}${ep}\n更新时间: ${now}\n点击刷新`;
+          return;
+        }
+      } catch (_) { /* 尝试下一个端点 */ }
+    }
+    const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    this.balanceStatusBar.text = "$(credit-card) 余额: 不支持";
+    this.balanceStatusBar.tooltip = `当前 API 不支持余额查询 (${host})\n更新时间: ${now}\n点击刷新`;
+  }
+  startBalanceTimer() {
+    this.fetchApiBalance();
+    this.balanceTimer = setInterval(() => this.fetchApiBalance(), 2 * 60 * 1000);
+  }
+  stopBalanceTimer() {
+    if (this.balanceTimer) {
+      clearInterval(this.balanceTimer);
+      this.balanceTimer = null;
+    }
+  }
   dispose() {
+    this.stopBalanceTimer();
     this.stop();
   }
 }

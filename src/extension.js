@@ -71,7 +71,10 @@ function activate(context) {
       }
       sidebar.refresh();
     }),
-    vscode.commands.registerCommand('devin-byok-plus.reloadWorkbench', () => reloadWorkbenchWindow())
+    vscode.commands.registerCommand('devin-byok-plus.reloadWorkbench', () => reloadWorkbenchWindow()),
+    vscode.commands.registerCommand('devin-byok-plus.refreshBalance', () => {
+      proxyManager.fetchApiBalance();
+    })
   );
 
   if (context.globalState.get(KEY_AUTO_START_PROXY) === true) {
