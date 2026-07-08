@@ -473,7 +473,7 @@
   // 当前编辑中的 profile 状态
   let currentEditingProfile = null;
 
-  function showProfileEditor(profileId, profileName, isActive, config, balanceToken) {
+  function showProfileEditor(profileId, profileName, isActive, config, balanceToken, userId) {
     currentEditingProfile = { profileId, profileName, isActive };
     const card = fn4("profileEditorCard");
     const nameInput = fn4("cfgProfileName");
@@ -481,6 +481,7 @@
     if (card) card.classList.remove("hidden");
     if (nameInput) nameInput.value = profileName || "";
     fn13("cfgBalanceToken", balanceToken || "");
+    fn13("cfgUserId", userId || "");
     if (badge) {
       badge.textContent = isActive ? "使用中" : "未启用";
       badge.className = isActive ? "badge badge-info" : "badge badge-warn";
@@ -909,6 +910,7 @@
         config: fn27(),
         profileName: nameInput ? nameInput.value.trim() : "",
         balanceToken: (fn4("cfgBalanceToken")?.value || "").trim(),
+        userId: (fn4("cfgUserId")?.value || "").trim(),
         silent: false
       });
     } else if (tmp32 === "closeProfileEditor") {
@@ -1108,7 +1110,7 @@
     } else if (tmp12.type === "profileList") {
       renderProfileList(tmp12);
     } else if (tmp12.type === "openProfileEditor") {
-      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken);
+      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken, tmp12.userId);
     } else if (tmp12.type === "actionState" && tmp12.section) {
       fn7(tmp12.section, tmp12.state === "error" ? "error" : "success", tmp12.message || "完成");
     } else if (tmp12.type === "modelList") {

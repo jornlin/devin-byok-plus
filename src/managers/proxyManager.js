@@ -1117,24 +1117,26 @@ class ProxyManager {
     const host = ((profile?.byok1?.host) || (envConfig.BYOK1_OPENAI_API_HOST) || (envConfig.BYOK1_ANTHROPIC_API_HOST) || (envConfig.OPENAI_API_HOST) || (envConfig.ANTHROPIC_API_HOST) || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apiKey = (profile?.byok1?.key) || (envConfig.BYOK1_ANTHROPIC_API_KEY) || (envConfig.OPENAI_API_KEY) || (envConfig.ANTHROPIC_API_KEY) || '';
     const balanceToken = (profile?.balanceToken || '').trim();
+    const userId = (profile?.userId || '').trim();
     if (!host || !apiKey) {
       this.balanceStatusBar.text = "$(credit-card) 余额: 未配置";
       this.balanceStatusBar.tooltip = "请先配置 API Host 和 Key\n点击刷新";
       return;
     }
     const base = (host.startsWith('http') ? host : 'https://' + host);
-    const authToken = balanceToken || apiKey;
-    const endpoints = balanceToken
-      ? [
-          ['/api/user/self',  { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': balanceToken, 'Content-Type': 'application/json' }],
-          ['/api/user/info',  { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': balanceToken, 'Content-Type': 'application/json' }],
-        ]
-      : [
-          ['/api/user/self',  { 'New-Api-User': authToken, 'Content-Type': 'application/json' }],
-          ['/v1/user/balance', { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }],
-          ['/api/user/info',  { 'New-Api-User': authToken, 'Content-Type': 'application/json' }],
-          ['/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }],
-        ];
+    // 优先级：userId(Bearer+apiKey) > balanceToken(直接Authorization) > apiKey(通用端点)
+    const endpoints = [];
+    if (userId) {
+      endpoints.push(['/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId, 'Content-Type': 'application/json' }]);
+      endpoints.push(['/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId, 'Content-Type': 'application/json' }]);
+    }
+    if (balanceToken) {
+      endpoints.push(['/api/user/self', { 'Authorization': balanceToken, 'Content-Type': 'application/json' }]);
+      endpoints.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'Content-Type': 'application/json' }]);
+      endpoints.push(['/api/user/info', { 'Authorization': balanceToken, 'Content-Type': 'application/json' }]);
+    }
+    endpoints.push(['/v1/user/balance',              { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }]);
+    endpoints.push(['/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }]);
     const errors = [];
     for (const [ep, headers] of endpoints) {
       try {
