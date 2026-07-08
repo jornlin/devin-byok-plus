@@ -1109,59 +1109,92 @@ class ProxyManager {
   }
   async fetchApiBalance() {
     this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
-    const cfg = this.readEnvConfig();
-    const host = (cfg.BYOK1_OPENAI_API_HOST || cfg.BYOK1_ANTHROPIC_API_HOST || cfg.OPENAI_API_HOST || cfg.ANTHROPIC_API_HOST || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const key = cfg.BYOK1_OPENAI_API_KEY || cfg.BYOK1_ANTHROPIC_API_KEY || cfg.OPENAI_API_KEY || cfg.ANTHROPIC_API_KEY || '';
-    if (!host || !key) {
+    const https = require('https');
+    const http = require('http');
+    const profileStore = require('../services/profileStore');
+    const envConfig = this.readEnvConfig();
+    const profile = profileStore.getActiveProfile(envConfig);
+    const host = ((profile?.byok1?.host) || (envConfig.BYOK1_OPENAI_API_HOST) || (envConfig.BYOK1_ANTHROPIC_API_HOST) || (envConfig.OPENAI_API_HOST) || (envConfig.ANTHROPIC_API_HOST) || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const apiKey = (profile?.byok1?.key) || (envConfig.BYOK1_ANTHROPIC_API_KEY) || (envConfig.OPENAI_API_KEY) || (envConfig.ANTHROPIC_API_KEY) || '';
+    const balanceToken = (profile?.balanceToken || '').trim();
+    if (!host || !apiKey) {
       this.balanceStatusBar.text = "$(credit-card) 余额: 未配置";
       this.balanceStatusBar.tooltip = "请先配置 API Host 和 Key\n点击刷新";
       return;
     }
-    const https = require('https');
-    const http = require('http');
-    const useHttp = host.startsWith('localhost') || host.startsWith('127.');
-    const endpoints = ["/v1/dashboard/billing/credit_grants", "/v1/user/balance", "/dashboard/billing/credit_grants"];
-    for (const ep of endpoints) {
+    const base = (host.startsWith('http') ? host : 'https://' + host);
+    const authToken = balanceToken || apiKey;
+    const endpoints = balanceToken
+      ? [
+          ['/api/user/self',  { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': balanceToken, 'Content-Type': 'application/json' }],
+          ['/api/user/info',  { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': balanceToken, 'Content-Type': 'application/json' }],
+        ]
+      : [
+          ['/api/user/self',  { 'New-Api-User': authToken, 'Content-Type': 'application/json' }],
+          ['/v1/user/balance', { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }],
+          ['/api/user/info',  { 'New-Api-User': authToken, 'Content-Type': 'application/json' }],
+          ['/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }],
+        ];
+    const errors = [];
+    for (const [ep, headers] of endpoints) {
       try {
-        const result = await new Promise((resolve, reject) => {
-          const mod = useHttp ? http : https;
-          const req = mod.request({
-            hostname: host.split(':')[0],
-            port: host.includes(':') ? parseInt(host.split(':')[1]) : (useHttp ? 80 : 443),
-            path: ep,
+        const rawUrl = base + ep;
+        const u = new URL(rawUrl);
+        const lib = u.protocol === 'http:' ? http : https;
+        const data = await new Promise((resolve, reject) => {
+          const req = lib.request({
+            hostname: u.hostname,
+            port: u.port ? Number(u.port) : (u.protocol === 'http:' ? 80 : 443),
+            path: u.pathname + u.search,
             method: 'GET',
             rejectUnauthorized: false,
-            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
-          }, res => {
-            let data = '';
-            res.on('data', c => data += c);
+            timeout: 8000,
+            headers,
+          }, (res) => {
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', c => body += c);
             res.on('end', () => {
-              if (res.statusCode === 200) resolve(data);
-              else reject(new Error('status ' + res.statusCode));
+              if (res.statusCode !== 200) { reject(new Error('HTTP ' + res.statusCode)); return; }
+              try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
             });
           });
           req.on('error', reject);
-          req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
           req.end();
         });
-        const json = JSON.parse(result);
-        let balance = null;
-        if (json.total_available != null) balance = json.total_available;
-        else if (json.balance != null) balance = json.balance;
-        else if (json.data?.total_available != null) balance = json.data.total_available;
-        else if (json.data?.balance != null) balance = json.data.balance;
-        if (balance != null) {
-          const fmt = typeof balance === 'number' ? balance.toFixed(2) : balance;
+        const balance = this._parseBalance(data);
+        if (balance !== null) {
+          const fmt = balance.toFixed(2);
           const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-          this.balanceStatusBar.text = `$(credit-card) 余额: ${fmt}`;
-          this.balanceStatusBar.tooltip = `API 余额: ${fmt}\n来自: ${host}${ep}\n更新时间: ${now}\n点击刷新`;
+          this.balanceStatusBar.text = `$(credit-card) $${fmt}`;
+          this.balanceStatusBar.tooltip = `API 余额: $${fmt}\n来自: ${host}${ep}\n方案: ${profile?.name || '默认'}\n更新时间: ${now}\n点击刷新`;
           return;
         }
-      } catch (_) { /* 尝试下一个端点 */ }
+        errors.push(ep + ':parse_null');
+      } catch (e) {
+        errors.push(ep + ':' + e.message.slice(0, 40));
+      }
     }
     const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    this.balanceStatusBar.text = "$(credit-card) 余额: 不支持";
-    this.balanceStatusBar.tooltip = `当前 API 不支持余额查询 (${host})\n更新时间: ${now}\n点击刷新`;
+    this.balanceStatusBar.text = "$(credit-card) 余额: 查询失败";
+    this.balanceStatusBar.tooltip = `查询失败 (${host})\n${errors.join(' | ')}\n更新时间: ${now}\n点击刷新`;
+  }
+  _parseBalance(data) {
+    if (!data || typeof data !== 'object') return null;
+    const d = data.data || data;
+    if (typeof d.quota === 'number' && d.quota >= 0) return d.quota / 500000;
+    const candidates = [
+      d.balance, d.total_available, d.credits, d.credit,
+      d.total_balance, d.remaining,
+      data.balance, data.total_available, data.credits, data.credit,
+    ];
+    for (const v of candidates) {
+      if (v === undefined || v === null || v === '') continue;
+      const n = parseFloat(v);
+      if (!isNaN(n)) return n;
+    }
+    return null;
   }
   startBalanceTimer() {
     this.fetchApiBalance();

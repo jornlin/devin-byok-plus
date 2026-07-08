@@ -24,6 +24,10 @@
             <label>方案名称</label>
             <input type="text" id="cfgProfileName" placeholder="方案名称" autocomplete="off">
         </div>
+        <div class="fg">
+            <label title="NewAPI/One-API 的登录令牌，用于查询余额。与 API Key 不同，这是你登录控制台后获得的 Token。">访问令牌 <span class="hint">（查余额用，可选）</span></label>
+            <input type="password" id="cfgBalanceToken" placeholder="NewAPI 登录令牌（用于 /api/user/self 余额查询）" autocomplete="off">
+        </div>
         <div class="byok-grid">
     <!-- BYOK #1 配置卡片 -->
     <div class="byok-card byok1-stripe">

@@ -34,6 +34,7 @@ function createDefaultProfile(envConfig = {}) {
   return {
     id: generateProfileId(),
     name: '方案 1',
+    balanceToken: envConfig.BYOK1_BALANCE_TOKEN || '',
     byok1: {
       host: envConfig.BYOK1_ANTHROPIC_API_HOST || '',
       key: envConfig.BYOK1_ANTHROPIC_API_KEY || '',
@@ -131,6 +132,7 @@ function normalizeProfile(profile) {
   if (!profile || typeof profile !== 'object') {
     return profile;
   }
+  if (profile.balanceToken === undefined) profile.balanceToken = '';
   profile.byok1 = normalizeSlot(profile.byok1);
   profile.byok2 = normalizeSlot(profile.byok2);
   profile.byok3 = normalizeSlot(profile.byok3);
