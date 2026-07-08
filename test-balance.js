@@ -19,11 +19,12 @@ console.log('');
 const base = 'https://' + host;
 
 const tests = [
-  ['userId-方案', '/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }],
-  ['token-无Bearer', '/api/user/self', { 'Authorization': balanceToken }],
-  ['token-有Bearer', '/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }],
-  ['apikey-user-info', '/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }],
-  ['apikey-v1-balance', '/v1/user/balance', { 'Authorization': 'Bearer ' + apiKey }],
+  ['✓ token+userId(Bearer)', '/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }],
+  ['✓ token+userId(无Bearer)', '/api/user/self', { 'Authorization': balanceToken,            'New-Api-User': userId }],
+  ['  apiKey+userId',          '/api/user/self', { 'Authorization': 'Bearer ' + apiKey,       'New-Api-User': userId }],
+  ['  token无userId',          '/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }],
+  ['  v1/dashboard',           '/v1/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }],
+  ['  v1/user/balance',        '/v1/user/balance',                    { 'Authorization': 'Bearer ' + apiKey }],
 ];
 
 let i = 0;

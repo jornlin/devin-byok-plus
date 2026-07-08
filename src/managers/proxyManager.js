@@ -1128,16 +1128,19 @@ class ProxyManager {
     const port = host.includes(':') ? parseInt(host.split(':')[1]) : (useHttp ? 80 : 443);
     const mod = useHttp ? http : https;
 
-    // 按优先级排列端点：userId方案 > balanceToken方案 > 原始通用端点（保持原来可用逻辑）
+    // 按优先级排列端点：userId+balanceToken组合 > userId+apiKey > 通用端点
     const tryList = [];
-    if (userId) {
+    if (balanceToken && userId) {
+      // 正确格式：Bearer balanceToken + New-Api-User: userId
+      tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
+      tryList.push(['/api/user/self', { 'Authorization': balanceToken,             'New-Api-User': userId }]);
+      tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
+    } else if (userId) {
       tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
       tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
-    }
-    if (balanceToken) {
-      tryList.push(['/api/user/self', { 'Authorization': balanceToken }]);
+    } else if (balanceToken) {
       tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }]);
-      tryList.push(['/api/user/info', { 'Authorization': balanceToken }]);
+      tryList.push(['/api/user/self', { 'Authorization': balanceToken }]);
     }
     // 原来工作的3个通用端点（保持不变）
     tryList.push(['/v1/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }]);
