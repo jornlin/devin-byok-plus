@@ -14,6 +14,7 @@ import { endOfStreamEnvelope, streamHeaders, wrapEnvelope } from '../connect.js'
 import {
   buildAnthropicThinkingPayload,
   buildGeminiThinkingPayload,
+  correctApiPathForProvider,
   detectModelProvider,
   getByokSlot,
   sanitizeGeminiThinkingEffort,
@@ -27,6 +28,7 @@ import {
   getRuntimeConfig,
   getSlotModel,
   getSlotProtocol,
+  getSlotRuntime,
   getSlotThinkingEffort,
   getSlotServiceTier,
 } from './models.js';
@@ -417,7 +419,14 @@ function resolveEffectiveProvider(model, slot, gptForced = false) {
   if (isGeminiModel(model)) return 'gemini';
   if (isOpenAIModel(model) || gptForced) return 'gpt';
   if (isClaudeModel(model)) return 'claude';
-  return detectModelProvider(model) || 'claude';
+  const detected = detectModelProvider(model);
+  if (detected) return detected;
+  // 无法从模型名推断协议时：优先检查配置的 API 信息
+  const runtimeConfig = getRuntimeConfig();
+  if (runtimeConfig.openaiApiKey && !runtimeConfig.anthropicApiKey) return 'gpt';
+  if (runtimeConfig.openaiHost && !runtimeConfig.anthropicHost) return 'gpt';
+  // 最终回退：OpenAI 协议兼容范围更广
+  return 'gpt';
 }
 function resolveSlotThinkingEffort(arg0, arg1) {
   if (arg0 === 1 || arg0 === 2 || arg0 === 3 || arg0 === 4) {
@@ -1242,6 +1251,12 @@ function streamAnthropic(
   retryCount = 0
 ) {
   const tmp12 = getProviderConfig(tmp11).anthropic;
+  // 根据 hostname 自动修正非标准 Anthropic 路径（如 DeepSeek/Kimi 的 /anthropic）
+  const correctedAnthropicPath = correctApiPathForProvider('anthropic', tmp12.host, tmp12.apiPath);
+  if (correctedAnthropicPath !== tmp12.apiPath) {
+    console.log('  🔄 Auto-corrected Anthropic API path: ' + tmp12.apiPath + ' → ' + correctedAnthropicPath);
+    tmp12.apiPath = correctedAnthropicPath;
+  }
   // prompt cache 配置与网关能力检查（网关不支持 cache_control 时自动降级）
   const promptCacheConfig = getPromptCacheConfig();
   const promptCacheKey = buildGatewayCapabilityKey({
@@ -1686,6 +1701,12 @@ function streamOpenAI(
   }
 ) {
   const tmp14 = getProviderConfig(tmp13).openai;
+  // 根据 hostname 自动修正 OpenAI 路径（不支持 /v1/responses 的提供商直接使用 /v1/chat/completions）
+  const correctedOpenaiPath = correctApiPathForProvider('openai', tmp14.host, tmp14.apiPath);
+  if (correctedOpenaiPath !== tmp14.apiPath) {
+    console.log('  🔄 Auto-corrected OpenAI API path: ' + tmp14.apiPath + ' → ' + correctedOpenaiPath);
+    tmp14.apiPath = correctedOpenaiPath;
+  }
   const tmp16 = shouldForwardOpenAITools(tmp9, tmp4);
   const tmp30 = {
     systemPrompt: tmp2,

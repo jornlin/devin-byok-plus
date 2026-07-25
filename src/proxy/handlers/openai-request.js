@@ -21,8 +21,20 @@ export function shouldFallbackToChatCompletions(arg0, arg1) {
   if (![400, 404, 405, 422, 500, 501, 502].includes(arg0)) {
     return false;
   }
-  const tmp1 = String(arg1 || "").toLowerCase();
-  return /convert_request_failed|not implemented|not_implemented|unsupported|unknown.*api|invalid.*responses|responses api|does not support|route not found|path not found|new_api_error/.test(tmp1);
+  const lowerBody = String(arg1 || "").toLowerCase();
+  // 原有模式
+  if (/convert_request_failed|not implemented|not_implemented|unsupported|unknown.*api|invalid.*responses|responses api|does not support|route not found|path not found|new_api_error/.test(lowerBody)) {
+    return true;
+  }
+  // 增强：匹配更多上游错误格式（中文、自定义格式）
+  if (/not\s?found|no\s?route|unknown.*endpoint|invalid.*path|method.*not.*allow|not\s?exist|url\.not_found/.test(lowerBody)) {
+    return true;
+  }
+  // 兜底：404 状态码大概率是不存在 /v1/responses，安全回退
+  if (arg0 === 404) {
+    return true;
+  }
+  return false;
 }
 
 export function toChatCompletionsMessages(arg0, arg1) {

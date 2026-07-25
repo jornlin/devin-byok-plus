@@ -186,3 +186,58 @@ export function buildAnthropicThinkingPayload(model, effort, fallbackEffort = "m
     }
   };
 }
+
+// 使用非标准 Anthropic 路径（/anthropic 而非 /v1/messages）的提供商
+const ANTHROPIC_NONSTANDARD_PATH_HOSTS = [
+  { test: (host) => host.includes('deepseek') || host.includes('deepseek.com'), path: '/anthropic' },
+  { test: (host) => host.includes('moonshot') || host.includes('moonshot.ai') || host.includes('moonshot.cn'), path: '/anthropic' },
+];
+
+// 不支持 OpenAI Responses API（/v1/responses）的 OpenAI 兼容提供商
+const OPENAI_NO_RESPONSES_HOSTS = [
+  { test: (host) => host.includes('deepseek') || host.includes('deepseek.com') },
+  { test: (host) => host.includes('moonshot') || host.includes('moonshot.ai') || host.includes('moonshot.cn') },
+  { test: (host) => host.includes('siliconflow') || host.includes('siliconflow.cn') },
+];
+
+/**
+ * 根据提供商 hostname 和协议类型自动修正 API 路径。
+ * 仅在用户使用默认路径（或未设置路径）时才自动修正；
+ * 用户手动通过高级路由设置的路径会被保留。
+ *
+ * @param {'anthropic'|'openai'} protocolKind - 协议类型
+ * @param {string} hostname - 去掉协议头后的 host（如 api.deepseek.com）
+ * @param {string} currentPath - 当前配置的 API 路径
+ * @returns {string} 修正后的路径
+ */
+export function correctApiPathForProvider(protocolKind, hostname, currentPath) {
+  const lowerHost = String(hostname || '').toLowerCase();
+  const normalizedPath = String(currentPath || '').trim();
+
+  if (protocolKind === 'anthropic') {
+    for (const entry of ANTHROPIC_NONSTANDARD_PATH_HOSTS) {
+      if (entry.test(lowerHost)) {
+        // 仅在用户未手动修改路径（仍是默认值 /v1/messages）时自动修正
+        if (!normalizedPath || normalizedPath === '/v1/messages') {
+          return entry.path;
+        }
+        // 用户已手动设置路径，尊重用户选择
+        return normalizedPath;
+      }
+    }
+  }
+
+  if (protocolKind === 'openai') {
+    for (const entry of OPENAI_NO_RESPONSES_HOSTS) {
+      if (entry.test(lowerHost)) {
+        // 仅在路径为默认 /v1/responses 或 /v1/chat/completions 时自动修正
+        if (!normalizedPath || normalizedPath === '/v1/responses' || normalizedPath === '/v1/chat/completions') {
+          return '/v1/chat/completions';
+        }
+        return normalizedPath;
+      }
+    }
+  }
+
+  return normalizedPath || currentPath;
+}

@@ -63,6 +63,13 @@
     "onView:devin-byok-plus.sidebar"
   ],
   "main": "./src/extension.js",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@vscode/vsce-sign",
+      "keytar"
+    ]
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
