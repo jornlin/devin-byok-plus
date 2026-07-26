@@ -28,7 +28,6 @@ import {
   getRuntimeConfig,
   getSlotModel,
   getSlotProtocol,
-  getSlotRuntime,
   getSlotThinkingEffort,
   getSlotServiceTier,
 } from './models.js';
@@ -421,11 +420,9 @@ function resolveEffectiveProvider(model, slot, gptForced = false) {
   if (isClaudeModel(model)) return 'claude';
   const detected = detectModelProvider(model);
   if (detected) return detected;
-  // 无法从模型名推断协议时：优先检查配置的 API 信息
-  const runtimeConfig = getRuntimeConfig();
-  if (runtimeConfig.openaiApiKey && !runtimeConfig.anthropicApiKey) return 'gpt';
-  if (runtimeConfig.openaiHost && !runtimeConfig.anthropicHost) return 'gpt';
-  // 最终回退：OpenAI 协议兼容范围更广
+  // 无法从模型名/槽位协议推断时，默认走 OpenAI 协议：其 /chat/completions
+  // 兼容范围最广（DeepSeek/Kimi/Qwen/GLM 等第三方网关多以 OpenAI 兼容为主）。
+  // 需要 Anthropic 协议的用户应显式设置 BYOKn_PROTOCOL=anthropic 或使用 claude-* 模型名。
   return 'gpt';
 }
 function resolveSlotThinkingEffort(arg0, arg1) {
