@@ -8,7 +8,7 @@ import { handleGetWebSearchResults, handleGetWebSearchRedirect } from "./handler
 import { handleGetEmbeddings } from "./handlers/embeddings.js";
 import { handleModelsRequest, handleConfigRequest } from "./handlers/models.js";
 import { parseFields, writeStringField, writeBytesField, writeVarintField, writeFixed64Field, writeFixed32Field } from "./proto.js";
-import { tryGunzip } from "./connect.js";
+import { tryGunzip, bufferedResponseHeaders } from "./connect.js";
 import crypto from "node:crypto";
 import { startWSBridge, getChatQueue, ackChatQueue, pushChatQueue, setActiveMonitorTarget } from "./ws-bridge.js";
 import { getLoopbackListenHosts, loopbackApiUrl } from "./net-utils.js";
@@ -187,12 +187,7 @@ function proxyToCodeium(arg0, arg1, arg2, arg3, tmp4 = {}) {
             console.error("  [#" + arg3 + "] RegisterUser rewrite error: " + tmp04.message);
           }
         }
-        const tmp1 = {
-          ...arg02.headers
-        };
-        const tmp2 = tmp1;
-        delete tmp2["content-length"];
-        tmp2["content-length"] = tmp03.length;
+        const tmp2 = bufferedResponseHeaders(arg02.headers, tmp03.length);
         arg1.writeHead(arg02.statusCode, tmp2);
         arg1.end(tmp03);
       });
