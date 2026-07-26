@@ -911,6 +911,13 @@ class SidebarProvider {
     ) {
       tmp2.BYOK4_THINKING_EFFORT = '';
     }
+    // reasoning.mode 白名单清洗（GPT-5.6 专用，覆盖 4 槽，对齐上游 v2.6.1）
+    for (const slot of ['BYOK1', 'BYOK2', 'BYOK3', 'BYOK4']) {
+      const key = slot + '_OPENAI_REASONING_MODE';
+      if (!['', 'standard', 'pro'].includes(String(tmp2[key] || '').toLowerCase())) {
+        tmp2[key] = '';
+      }
+    }
     if (!['true', 'false'].includes(tmp2.OPENAI_THINKING_ENABLED || 'false')) {
       tmp2.OPENAI_THINKING_ENABLED = 'false';
     }
