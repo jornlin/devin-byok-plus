@@ -1425,6 +1425,12 @@ class SidebarProvider {
           this.editingProfileId = list.activeId;
         }
         const fields = this.envConfigToProfileFields(tmp03);
+        if (typeof tmp02.balanceToken === 'string') {
+          fields.balanceToken = tmp02.balanceToken.trim();
+        }
+        if (typeof tmp02.userId === 'string') {
+          fields.userId = tmp02.userId.trim();
+        }
         profileStore_1.updateProfile(this.editingProfileId, fields, envConfig);
         // 同步方案名（如果 webview 提供了名字）
         if (profileName) {
@@ -1499,6 +1505,8 @@ class SidebarProvider {
             profileName: profile.name,
             isActive: profile.id === activeId,
             config: scoped,
+            balanceToken: profile.balanceToken || '',
+            userId: profile.userId || '',
           });
         }
         this.postProfileList();
@@ -1552,6 +1560,7 @@ class SidebarProvider {
         profileStore_1.activateProfile(pid, envConfig);
         this.editingProfileId = pid;
         await this.applyProfileToRuntime(profile, false);
+        this.proxyManager.fetchApiBalance();
         this.postProfileList();
         this.refresh();
         break;

@@ -72,6 +72,14 @@ class ProxyManager {
     this.updateStatusBar();
     this.statusBar.show();
     tmp0.subscriptions.push(this.statusBar);
+    this.balanceStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    this.balanceStatusBar.command = "devin-byok-plus.refreshBalance";
+    this.balanceStatusBar.text = "$(credit-card) 余额: --";
+    this.balanceStatusBar.tooltip = "点击刷新 API 余额";
+    this.balanceStatusBar.show();
+    tmp0.subscriptions.push(this.balanceStatusBar);
+    this.balanceTimer = null;
+    this.startBalanceTimer();
     this.refreshExternalProxyStatus();
   }
   updateStatusBar() {
@@ -1099,7 +1107,115 @@ class ProxyManager {
       requestCount: this.requestCount
     };
   }
+  async fetchApiBalance() {
+    this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
+    const https = require('https');
+    const http = require('http');
+    const profileStore = require('../services/profileStore');
+    const envConfig = this.readEnvConfig();
+    const profile = profileStore.getActiveProfile(envConfig);
+    const host = ((profile?.byok1?.host) || envConfig.BYOK1_OPENAI_API_HOST || envConfig.BYOK1_ANTHROPIC_API_HOST || envConfig.OPENAI_API_HOST || envConfig.ANTHROPIC_API_HOST || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const apiKey = (profile?.byok1?.key) || envConfig.BYOK1_ANTHROPIC_API_KEY || envConfig.OPENAI_API_KEY || envConfig.ANTHROPIC_API_KEY || '';
+    const balanceToken = (profile?.balanceToken || '').trim();
+    const userId = (profile?.userId || '').trim();
+    if (!host || !apiKey) {
+      this.balanceStatusBar.text = "$(credit-card) 余额: 未配置";
+      this.balanceStatusBar.tooltip = "请先配置 API Host 和 Key\n点击刷新";
+      return;
+    }
+    const useHttp = host.startsWith('localhost') || host.startsWith('127.');
+    const hostname = host.split(':')[0];
+    const port = host.includes(':') ? parseInt(host.split(':')[1]) : (useHttp ? 80 : 443);
+    const mod = useHttp ? http : https;
+
+    // 按优先级排列端点：userId+balanceToken组合 > userId+apiKey > 通用端点
+    const tryList = [];
+    if (balanceToken && userId) {
+      // 正确格式：Bearer balanceToken + New-Api-User: userId
+      tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
+      tryList.push(['/api/user/self', { 'Authorization': balanceToken,             'New-Api-User': userId }]);
+      tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
+    } else if (userId) {
+      tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
+      tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
+    } else if (balanceToken) {
+      tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }]);
+      tryList.push(['/api/user/self', { 'Authorization': balanceToken }]);
+    }
+    // 原来工作的3个通用端点（保持不变）
+    tryList.push(['/v1/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }]);
+    tryList.push(['/v1/user/balance',                    { 'Authorization': 'Bearer ' + apiKey }]);
+    tryList.push(['/dashboard/billing/credit_grants',    { 'Authorization': 'Bearer ' + apiKey }]);
+
+    const errors = [];
+    for (const [ep, extraHeaders] of tryList) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const req = mod.request({
+            hostname, port, path: ep, method: 'GET',
+            rejectUnauthorized: false, timeout: 8000,
+            headers: { ...extraHeaders, 'Content-Type': 'application/json' },
+          }, (res) => {
+            let body = '';
+            res.on('data', c => body += c);
+            res.on('end', () => {
+              if (res.statusCode === 200) resolve(body);
+              else reject(new Error('HTTP ' + res.statusCode));
+            });
+          });
+          req.on('error', reject);
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+          req.end();
+        });
+        const json = JSON.parse(result);
+        const balance = this._parseBalance(json);
+        if (balance !== null) {
+          const fmt = balance.toFixed(2);
+          const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          this.balanceStatusBar.text = `$(credit-card) 余额: ${fmt}`;
+          this.balanceStatusBar.tooltip = `API 余额: ${fmt}\n来自: ${host}${ep}\n方案: ${profile?.name || '默认'}\n更新时间: ${now}\n点击刷新`;
+          return;
+        }
+        errors.push(ep + ':无余额字段');
+      } catch (e) {
+        errors.push(ep + ':' + e.message.slice(0, 30));
+      }
+    }
+    const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    this.balanceStatusBar.text = "$(credit-card) 余额: 不支持";
+    this.balanceStatusBar.tooltip = `无法获取余额 (${host})\n${errors.join('\n')}\n${now}\n点击刷新`;
+  }
+  _parseBalance(json) {
+    if (!json || typeof json !== 'object') return null;
+    // NewAPI /api/user/self: {"success":true,"data":{"quota":5000000,...}}
+    if (json.success === true && json.data) {
+      const d = json.data;
+      if (typeof d.quota === 'number' && d.quota > 0) return d.quota / 500000;
+      if (d.total_available != null) return parseFloat(d.total_available);
+      if (d.balance != null) return parseFloat(d.balance);
+    }
+    // 通用字段（原始工作逻辑）
+    if (json.total_available != null) return parseFloat(json.total_available);
+    if (json.balance != null) return parseFloat(json.balance);
+    if (json.data?.total_available != null) return parseFloat(json.data.total_available);
+    if (json.data?.balance != null) return parseFloat(json.data.balance);
+    // quota 字段（兜底）
+    if (typeof json.quota === 'number' && json.quota > 0) return json.quota / 500000;
+    if (typeof json.data?.quota === 'number' && json.data.quota > 0) return json.data.quota / 500000;
+    return null;
+  }
+  startBalanceTimer() {
+    this.fetchApiBalance();
+    this.balanceTimer = setInterval(() => this.fetchApiBalance(), 2 * 60 * 1000);
+  }
+  stopBalanceTimer() {
+    if (this.balanceTimer) {
+      clearInterval(this.balanceTimer);
+      this.balanceTimer = null;
+    }
+  }
   dispose() {
+    this.stopBalanceTimer();
     this.stop();
   }
 }
