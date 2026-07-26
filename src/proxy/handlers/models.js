@@ -15,6 +15,7 @@ function readSlotConfigFromEnv(arg0, tmp1 = null) {
   const tmp9 = sanitizeThinkingEffort(process.env[slotField(arg0, "THINKING_EFFORT")] || "");
   const tmp11 = sanitizeSlotProtocol(process.env[slotField(arg0, "PROTOCOL")] || "");
   const tmp12 = sanitizeOpenAIServiceTier(process.env[slotField(arg0, "OPENAI_SERVICE_TIER")] || (arg0 === 1 ? process.env.OPENAI_SERVICE_TIER || "" : ""));
+  const tmp13 = sanitizeOpenAIReasoningMode(process.env[slotField(arg0, "OPENAI_REASONING_MODE")] || (arg0 === 1 ? process.env.OPENAI_REASONING_MODE || "" : ""));
   const tmp10 = {
     anthropicHost: tmp2,
     anthropicApiPath: tmp4,
@@ -25,7 +26,8 @@ function readSlotConfigFromEnv(arg0, tmp1 = null) {
     model: tmp8,
     thinkingEffort: tmp9,
     protocol: tmp11,
-    serviceTier: tmp12
+    serviceTier: tmp12,
+    reasoningMode: tmp13
   };
   if (!tmp10.anthropicHost && !tmp10.anthropicApiKey && !tmp10.model && tmp1) {
     return {
@@ -44,7 +46,8 @@ const _legacySlotFallback = {
   model: process.env.DEFAULT_MODEL || "",
   thinkingEffort: sanitizeThinkingEffort(process.env.BYOK1_THINKING_EFFORT || process.env.OPENAI_REASONING_EFFORT || ""),
   protocol: sanitizeSlotProtocol(process.env.BYOK1_PROTOCOL || ""),
-  serviceTier: sanitizeOpenAIServiceTier(process.env.BYOK1_OPENAI_SERVICE_TIER || process.env.OPENAI_SERVICE_TIER || "")
+  serviceTier: sanitizeOpenAIServiceTier(process.env.BYOK1_OPENAI_SERVICE_TIER || process.env.OPENAI_SERVICE_TIER || ""),
+  reasoningMode: sanitizeOpenAIReasoningMode(process.env.BYOK1_OPENAI_REASONING_MODE || process.env.OPENAI_REASONING_MODE || "")
 };
 const _emptySlot = {
   anthropicHost: "",
@@ -56,7 +59,8 @@ const _emptySlot = {
   model: "",
   thinkingEffort: "",
   protocol: "",
-  serviceTier: ""
+  serviceTier: "",
+  reasoningMode: ""
 };
 function sanitizeReasoningEffort(arg0) {
   const tmp1 = String(arg0 ?? "").trim();
@@ -68,7 +72,11 @@ function sanitizeReasoningEffort(arg0) {
 }
 function sanitizeOpenAIServiceTier(arg0) {
   const tmp1 = String(arg0 ?? "").trim().toLowerCase();
-  return tmp1 === "fast" ? "fast" : "";
+  return ["fast", "priority"].includes(tmp1) ? tmp1 : "";
+}
+function sanitizeOpenAIReasoningMode(arg0) {
+  const tmp1 = String(arg0 ?? "").trim().toLowerCase();
+  return ["standard", "pro"].includes(tmp1) ? tmp1 : "";
 }
 function sanitizeBooleanString(arg0) {
   return String(arg0 ?? "").trim().toLowerCase() === "true";
@@ -90,6 +98,7 @@ let _runtimeConfig = {
   openaiApiPath: process.env.OPENAI_API_PATH || "/v1/responses",
   openaiApiKey: process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || "",
   openaiServiceTier: sanitizeOpenAIServiceTier(process.env.OPENAI_SERVICE_TIER || ""),
+  openaiReasoningMode: sanitizeOpenAIReasoningMode(process.env.OPENAI_REASONING_MODE || ""),
   openaiReasoningEffort: Object.prototype.hasOwnProperty.call(process.env, "OPENAI_REASONING_EFFORT") ? sanitizeReasoningEffort(process.env.OPENAI_REASONING_EFFORT) : "",
   openaiThinkingEnabled: sanitizeBooleanString(process.env.OPENAI_THINKING_ENABLED),
   completionTimeoutMs: sanitizePositiveInteger(process.env.COMPLETION_TIMEOUT_MS, 12000, 2000, 60000),
@@ -154,6 +163,10 @@ export function getSlotServiceTier(arg0) {
   const tmp0 = getSlotRuntime(arg0).serviceTier || "";
   return tmp0 || (arg0 === 1 ? _runtimeConfig.openaiServiceTier || "" : "");
 }
+export function getSlotReasoningMode(arg0) {
+  const tmp0 = getSlotRuntime(arg0).reasoningMode || "";
+  return tmp0 || (arg0 === 1 ? _runtimeConfig.openaiReasoningMode || "" : "");
+}
 export function getRuntimeConfig() {
   const tmp0 = {
     ..._runtimeConfig
@@ -199,6 +212,7 @@ function applySlotPatch(arg0, arg1) {
   tmp2 = setSlotStringField(arg0, tmp3 + "OPENAI_API_PATH", arg1, "openaiApiPath") || tmp2;
   tmp2 = setSlotStringField(arg0, tmp3 + "OPENAI_API_KEY", arg1, "openaiApiKey") || tmp2;
   tmp2 = setSlotStringField(arg0, tmp3 + "OPENAI_SERVICE_TIER", arg1, "serviceTier", sanitizeOpenAIServiceTier) || tmp2;
+  tmp2 = setSlotStringField(arg0, tmp3 + "OPENAI_REASONING_MODE", arg1, "reasoningMode", sanitizeOpenAIReasoningMode) || tmp2;
   if (Object.prototype.hasOwnProperty.call(arg0, tmp3 + "MODEL")) {
     const tmp0 = typeof arg0[tmp3 + "MODEL"] === "string" ? arg0[tmp3 + "MODEL"].trim() : "";
     const tmp1 = arg1 === 2 ? "byok2" : arg1 === 3 ? "byok3" : arg1 === 4 ? "byok4" : "byok1";
@@ -244,6 +258,7 @@ export function setRuntimeConfig(arg0) {
   tmp1 = setStringField(arg0, "OPENAI_API_PATH", "openaiApiPath") || tmp1;
   tmp1 = setStringField(arg0, "OPENAI_API_KEY", "openaiApiKey") || tmp1;
   tmp1 = setStringField(arg0, "OPENAI_SERVICE_TIER", "openaiServiceTier", sanitizeOpenAIServiceTier) || tmp1;
+  tmp1 = setStringField(arg0, "OPENAI_REASONING_MODE", "openaiReasoningMode", sanitizeOpenAIReasoningMode) || tmp1;
   if (Object.prototype.hasOwnProperty.call(arg0, "DEFAULT_MODEL")) {
     const tmp0 = typeof arg0.DEFAULT_MODEL === "string" ? arg0.DEFAULT_MODEL.trim() : "";
     if (_runtimeConfig.byok1.model !== tmp0) {

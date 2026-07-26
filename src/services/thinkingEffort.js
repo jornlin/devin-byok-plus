@@ -19,6 +19,14 @@ const PROVIDER_OPTIONS = {
     ['high', '高 · reasoning.effort=high'],
     ['xhigh', '极高 · reasoning.effort=xhigh']
   ],
+  gpt56: [
+    ['', '关闭 · 不启用 reasoning'],
+    ['low', '低 · reasoning.effort=low'],
+    ['medium', '中 · reasoning.effort=medium'],
+    ['high', '高 · reasoning.effort=high'],
+    ['xhigh', '极高 · reasoning.effort=xhigh'],
+    ['max', 'Max · GPT-5.6 最深推理']
+  ],
   gemini: [
     ['', '默认 · medium（API 默认，不覆盖）'],
     ['minimal', 'Minimal · 最低思考 / 最低延迟'],
@@ -63,7 +71,14 @@ function supportsThinkingIntensity(provider, model) {
   return false;
 }
 
-function getThinkingEffortOptions(provider) {
+function isGpt56Model(model) {
+  return /^gpt-5\.6(?:-|$)/.test(normalizeModelName(model));
+}
+
+function getThinkingEffortOptions(provider, model = '') {
+  if (provider === 'gpt' && isGpt56Model(model)) {
+    return PROVIDER_OPTIONS.gpt56;
+  }
   return PROVIDER_OPTIONS[provider] || PROVIDER_OPTIONS.claude;
 }
 
@@ -82,25 +97,25 @@ function sanitizeGeminiThinkingEffort(value) {
   return GEMINI_THINKING_LEVELS.includes(mapped) ? mapped : '';
 }
 
-function sanitizeEffortForProvider(provider, value) {
+function sanitizeEffortForProvider(provider, value, model = '') {
   if (provider === 'gemini') {
     return sanitizeGeminiThinkingEffort(value);
   }
   const normalized = String(value ?? '').trim().toLowerCase();
-  const legacyMap = provider === 'gpt' ? { max: 'xhigh' } : {};
+  const legacyMap = provider === 'gpt' && !isGpt56Model(model) ? { max: 'xhigh' } : {};
   const mapped = legacyMap[normalized] || normalized;
-  const allowed = new Set(getThinkingEffortOptions(provider).map(([v]) => v));
+  const allowed = new Set(getThinkingEffortOptions(provider, model).map(([v]) => v));
   return allowed.has(mapped) ? mapped : '';
 }
 
 function buildThinkingEffortOptionsHtml(model, current) {
   const provider = detectModelProvider(model);
-  return buildThinkingEffortOptionsHtmlForProvider(provider, current);
+  return buildThinkingEffortOptionsHtmlForProvider(provider, current, model);
 }
 
-function buildThinkingEffortOptionsHtmlForProvider(provider, current) {
-  const effort = sanitizeEffortForProvider(provider, current);
-  const options = provider ? getThinkingEffortOptions(provider) : [['', '请先选择模型']];
+function buildThinkingEffortOptionsHtmlForProvider(provider, current, model = '') {
+  const effort = sanitizeEffortForProvider(provider, current, model);
+  const options = provider ? getThinkingEffortOptions(provider, model) : [['', '请先选择模型']];
   return options.map(([value, label]) => {
     const selected = effort === value ? ' selected' : '';
     return `<option value="${value}"${selected}>${label}</option>`;
@@ -135,6 +150,7 @@ module.exports = {
   detectModelProvider,
   supportsThinkingIntensity,
   getThinkingEffortOptions,
+  isGpt56Model,
   sanitizeThinkingEffort,
   sanitizeGeminiThinkingEffort,
   sanitizeEffortForProvider,

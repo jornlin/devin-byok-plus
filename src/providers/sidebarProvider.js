@@ -283,6 +283,9 @@ class SidebarProvider {
     if (!String(tmp1.BYOK1_OPENAI_SERVICE_TIER || '').trim()) {
       tmp1.BYOK1_OPENAI_SERVICE_TIER = tmp1.OPENAI_SERVICE_TIER || '';
     }
+    if (!String(tmp1.BYOK1_OPENAI_REASONING_MODE || '').trim()) {
+      tmp1.BYOK1_OPENAI_REASONING_MODE = tmp1.OPENAI_REASONING_MODE || '';
+    }
     return tmp1;
   }
   validateByokSlots(tmp02) {
@@ -2129,7 +2132,61 @@ class SidebarProvider {
       tmp34,
       tmp35,
       tmp36,
+      pluginVersion: this.getInstalledVersion(),
+      pluginGitRemote: this.getGitRemoteUrl(),
     });
+  }
+  getExtensionPackageJson() {
+    const tmp02 = this.context?.extension?.packageJSON;
+    if (tmp02 && typeof tmp02 === 'object') {
+      return tmp02;
+    }
+    try {
+      const tmp1 = path.join(this.context.extensionPath, 'package.json');
+      return JSON.parse(fs.readFileSync(tmp1, 'utf8'));
+    } catch {
+      return {};
+    }
+  }
+  getInstalledVersion() {
+    const tmp02 = this.getExtensionPackageJson();
+    return typeof tmp02.version === 'string' && tmp02.version.trim() ? tmp02.version.trim() : 'unknown';
+  }
+  findGitRoot(tmp02) {
+    let tmp1 = tmp02 || this.context.extensionPath || process.cwd();
+    for (let tmp2 = 0; tmp2 < 8; tmp2++) {
+      const tmp3 = path.join(tmp1, '.git');
+      if (fs.existsSync(tmp3)) {
+        return tmp1;
+      }
+      const tmp4 = path.dirname(tmp1);
+      if (tmp4 === tmp1) {
+        break;
+      }
+      tmp1 = tmp4;
+    }
+    return '';
+  }
+  getGitRemoteUrl() {
+    const tmp02 = this.findGitRoot(this.context.extensionPath);
+    if (tmp02) {
+      try {
+        const tmp1 = path.join(tmp02, '.git', 'config');
+        const tmp2 = fs.readFileSync(tmp1, 'utf8');
+        const tmp3 = tmp2.match(/\[remote "origin"\][\s\S]*?\n\s*url\s*=\s*([^\r\n]+)/);
+        if (tmp3 && tmp3[1]) {
+          return tmp3[1].trim();
+        }
+      } catch {}
+    }
+    const tmp4 = this.getExtensionPackageJson().repository;
+    if (typeof tmp4 === 'string') {
+      return tmp4.trim();
+    }
+    if (tmp4 && typeof tmp4.url === 'string') {
+      return tmp4.url.trim();
+    }
+    return '未配置';
   }
 }
 exports.SidebarProvider = SidebarProvider;
