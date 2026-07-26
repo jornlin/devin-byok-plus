@@ -2,7 +2,7 @@
 
 > **非官方社区工具** — 与 Devin Desktop（原 Windsurf）、Codeium / Cognition 无隶属或授权关系。使用前请阅读 [DISCLAIMER.md](docs/DISCLAIMER.md)、[SECURITY.md](docs/SECURITY.md) 与 [CONTRIBUTING.md](docs/CONTRIBUTING.md)。
 
-Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协议选择、思考强度控制、OpenAI Fast Mode，使用自己的 API Key 连接 Claude / GPT / Gemini 模型。
+Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协议选择、思考强度控制、GPT-5.6 推理模式、OpenAI Processing Tier（priority/fast）、状态栏余额显示，使用自己的 API Key 连接 Claude / GPT / Gemini 模型。
 
 > **更名说明：** 2026 年 6 月起 Windsurf 已更名为 [Devin Desktop](https://devin.ai/desktop/)。本项目同步更名为 **Devin BYOK Plus**，并保留对旧版 Windsurf 安装路径的兼容。
 
@@ -15,7 +15,11 @@ Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协
 - 4 槽位 BYOK 扩展（新增 Claude Sonnet 4 BYOK #3 / #4）
 - 多渠道 Profile 方案系统
 - 手动协议选择（anthropic / openai / gemini）
-- OpenAI `service_tier=fast` 优先级通道支持
+- GPT-5.6 推理模式（`reasoning.mode` = standard / pro）与 OpenAI Processing Tier（`service_tier` = priority / fast）
+- 转发工具过滤（allow / deny 名单 + 前缀通配）
+- 网关能力缓存磁盘持久化（跨进程 / 重启复用）
+- 状态栏 API 余额显示（NewAPI / One-API）与 GitHub 版本更新提示
+- DeepSeek / Kimi Anthropic 路径自动修正
 - Prompt Cache / Token 用量日志
 - 请求重试与熔断机制
 - 持续的 bug 修复与文档完善
@@ -27,7 +31,7 @@ Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协
 - 插件 ID：`devin-byok-plus`
 - 显示名：Devin BYOK Plus
 - 维护者 / Publisher：`jornlin`
-- 版本：2.3.0
+- 版本：2.4.0
 - 仓库：https://github.com/jornlin/devin-byok-plus
 
 ## 安装
@@ -45,11 +49,14 @@ Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协
 2. 在 **BYOK #1 至 #4** （任选）分别填写 Base URL（可选）、API Key，或点击 **导入 Claude 配置** / **导入 GPT 配置** 读取 `~/.claude` / `~/.codex` 用户配置
 3. （可选）从 **Protocol** 下拉手动选择 anthropic / openai / gemini，空值时自动按模型名识别
 4. 各自点击 **加载模型**，选择模型；导入配置会自动保存并尝试加载模型；Claude / GPT / Gemini 会显示对应厂商的思考强度选项
-5. （可选）OpenAI 模型可将 **GPT Fast Mode** 设为 `Fast · service_tier=fast` 启用优先级通道
-6. 点击 **一键启动**
-7. 在 **补丁管理** 中安装补丁，然后 **重载窗口**
+5. （可选）OpenAI 模型可将 **GPT Processing Tier** 设为 `Priority · service_tier=priority`（OpenAI 官方优先处理）或 `Fast · service_tier=fast`（兼容网关快速模式）
+6. （可选）**GPT-5.6 系列**模型会额外出现 **推理模式** 下拉，可设为 `standard` / `pro`（写入 Responses API 的 `reasoning.mode`）
+7. 点击 **一键启动**
+8. 在 **补丁管理** 中安装补丁，然后 **重载窗口**
 
-> **💡 自动保存提示**：配置字段（API Key、模型、端口、协议、Fast Mode 等）会在输入后自动保存（650ms 防抖），无需手动点击"保存配置"按钮。显式保存仍会显示成功提示。
+> **💡 自动保存提示**：配置字段（API Key、模型、端口、协议、Processing Tier、推理模式等）会在输入后自动保存（650ms 防抖），无需手动点击"保存配置"按钮。显式保存仍会显示成功提示。
+
+> **💰 余额显示**：为方案填写 `balanceToken`（访问令牌）或 `userId` 后，状态栏会显示当前激活方案的 API 余额（NewAPI / One-API），每 2 分钟自动刷新、切换方案时刷新、可点击手动刷新。未配置的用户不会发起任何余额查询请求。
 
 ## 4 BYOK 配置
 
@@ -72,6 +79,7 @@ Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协
 |------|----------|----------|
 | **Claude** | `Claude · adaptive / budget_tokens` | adaptive + effort，或 `budget_tokens` |
 | **GPT** | `GPT · reasoning.effort` | `reasoning.effort` |
+| **GPT-5.6** | `GPT · reasoning.effort` | `reasoning.effort`（保留 `max`）+ 可选 `reasoning.mode` |
 | **Gemini** | `Gemini 3.5 Flash · thinking_level` | `thinking_config.thinking_level` |
 
 每个 BYOK 槽位可单独设置：
@@ -84,13 +92,14 @@ Devin Desktop BYOK 增强版 — 多模型路由、4 个 BYOK 槽位、手动协
 | 中 | `medium` | budget 10k / adaptive | `reasoning.effort=medium` | `thinking_level=medium`（默认） |
 | 高 | `high` | budget 20k / adaptive | `reasoning.effort=high` | `thinking_level=high` |
 | 极高 | `xhigh` | budget 32k / adaptive | `reasoning.effort=xhigh` | 映射为 `high` |
-| Max | `max` | adaptive `effort=max` | — | 映射为 `high` |
+| Max | `max` | adaptive `effort=max` | 仅 `gpt-5.6*` 使用 `reasoning.effort=max`；其他 GPT 映射为 `xhigh` | 映射为 `high` |
 
 说明：
 
 - **Claude 新模型**（如 `claude-opus-4-8`、`claude-opus-4-7`、`claude-opus-4-6`、`claude-sonnet-4-6`）使用 `thinking: { type: "adaptive" }` + `output_config.effort`
 - **Claude 旧模型** 使用 `thinking: { type: "enabled", budget_tokens: N }`
 - **GPT** 默认走 OpenAI Responses API（`/v1/responses`），通过 `reasoning.effort` 控制；网关不支持时会自动回退到 `/v1/chat/completions`
+- **GPT-5.6**（模型名以 `gpt-5.6` 开头）额外支持 `reasoning.mode`（`standard` / `pro`），仅写入 Responses API（Chat Completions 回退不携带）；且保留 `max` 思考强度（其他 GPT 的 `max` 仍降级为 `xhigh`）
 - **Gemini 3.x**（以 **3.5 Flash** 为准）使用 `thinking_config.thinking_level`（`minimal` / `low` / `medium` / `high`），**不要**与 `thinking_budget` 同传
 - **Gemini Chat Completions 回退** 会尽力传递 `thinking_config`；若网关不支持该扩展字段，会再降级为不带 thinking 的 Chat Completions
 - **Gemini 2.5** 等旧模型仍回退为 `thinking_budget` 数值映射
@@ -130,9 +139,10 @@ devin-byok-plus/
 │   │   ├── environmentProbe.js
 │   │   ├── externalConfigImporter.js   # 读取 ~/.claude / ~/.codex
 │   │   ├── modelFetcher.js
-│   │   ├── profileStore.js             # 多方案存储（~/.devin-byok-plus/profiles.json）
+│   │   ├── profileStore.js             # 多方案存储（~/.devin-byok-plus/profiles.json，含 balanceToken/userId）
 │   │   ├── promptTemplates.js
-│   │   └── thinkingEffort.js
+│   │   ├── thinkingEffort.js           # 思考强度选项（含 GPT-5.6 gpt56 组）
+│   │   └── versionChecker.js           # GitHub Releases 版本更新检测
 │   ├── utils/                 # 工具函数
 │   │   ├── gatewayUrl.js               # 网关 URL 协议推断
 │   │   ├── integrity.js                # 设备 ID / 版本
@@ -148,10 +158,10 @@ devin-byok-plus/
 │       ├── connect.js / proto.js / net-utils.js / ws-bridge.js / retry-utils.js
 │       ├── prompts/system-prompt.md
 │       └── handlers/
-│           ├── byok-slots.js               # 4 槽位 BYOK 路由 + protocol 白名单
-│           ├── models.js                   # 运行时配置（含 service_tier）
-│           ├── chat.js                     # 聊天 + 思考强度 + service_tier 注入
-│           ├── gateway-capability.js       # 网关能力缓存
+│           ├── byok-slots.js               # 4 槽位 BYOK 路由 + protocol 白名单 + reasoning effort 映射
+│           ├── models.js                   # 运行时配置（含 service_tier / reasoning_mode）
+│           ├── chat.js                     # 聊天 + 思考强度 + service_tier/reasoning.mode 注入 + 工具过滤 + SSE 帧拆分
+│           ├── gateway-capability.js       # 网关能力缓存（支持磁盘持久化）
 │           ├── openai-request.js           # OpenAI 路径与回退转换
 │           ├── completions.js              # 补全（BYOK #1 Anthropic）
 │           ├── prompt-cache.js             # Prompt Cache 断点与降级重试
@@ -182,9 +192,10 @@ BYOKn_ANTHROPIC_API_PATH=/v1/messages
 BYOKn_OPENAI_API_HOST=
 BYOKn_OPENAI_API_KEY=
 BYOKn_OPENAI_API_PATH=/v1/responses
-BYOKn_OPENAI_SERVICE_TIER=    # fast 或空；启用 OpenAI 优先级通道
+BYOKn_OPENAI_SERVICE_TIER=    # priority | fast | 空；priority=OpenAI 官方优先，fast=兼容网关快速模式
+BYOKn_OPENAI_REASONING_MODE= # standard | pro | 空；仅 gpt-5.6* 生效，写入 Responses API 的 reasoning.mode
 BYOKn_MODEL=
-BYOKn_THINKING_EFFORT=        # low | medium | high | xhigh | max
+BYOKn_THINKING_EFFORT=        # low | medium | high | xhigh | max（max 仅 gpt-5.6* 保留，其他 GPT 降级 xhigh）
 BYOKn_PROTOCOL=               # anthropic | openai | gemini | 空（自动识别）
 ```
 
@@ -198,6 +209,7 @@ ANTHROPIC_API_KEY=
 OPENAI_API_HOST=
 OPENAI_API_KEY=
 OPENAI_SERVICE_TIER=          # 镜像 BYOK1_OPENAI_SERVICE_TIER
+OPENAI_REASONING_MODE=        # 镜像 BYOK1_OPENAI_REASONING_MODE
 DEFAULT_MODEL=
 OPENAI_REASONING_EFFORT=      # 镜像 BYOK1_THINKING_EFFORT
 OPENAI_THINKING_ENABLED=
@@ -221,6 +233,9 @@ ADMIN_TOKEN=                  # 可选；设置后 /api/config POST 需 Bearer �
 
 - `OPENAI_ENABLE_REASONING=false` — 关闭 GPT reasoning
 - `GATEWAY_CAPABILITY_TTL_MS=3600000` — 网关能力缓存 TTL；用于记住某网关是否优先走 Chat Completions
+- `GATEWAY_CAPABILITY_CACHE_PATH=` — 网关能力缓存落盘路径（跨进程 / 重启复用）；由扩展自动注入至用户配置目录（`gateway-capability-cache.json`），一般无需手动设置
+- `TOOL_ALLOWLIST=` / `TOOL_DENYLIST=` — 转发工具白 / 黑名单（逗号 / 空格分隔，支持 `mcp1_*` 前缀通配），`deny` 优先于 `allow`；亦支持 `BYOK_TOOL_*` 前缀别名
+- `TOOL_ALLOW_PREFIXES=` / `TOOL_DENY_PREFIXES=mcp3_` — 按前缀过滤转发工具（等价于名单项以 `*` 结尾）
 - `STRIP_UNSIGNED_THINKING=false` — 保留无 signature 的 Claude thinking 块（默认剔除，建议保持默认）
 - `ALLOW_UNAUTH_CONFIG_POST=true` — 允许非 localhost 无鉴权修改运行时配置（**不推荐**）
 - `VOYAGE_API_KEY=` — Embeddings 走 Voyage 时需要
@@ -349,7 +364,7 @@ npm run package
 ### 安装方法
 
 1. **通过 VS Code GUI**：扩展面板 → 右上角 `...` → 从 VSIX 安装
-2. **通过命令行**：`code --install-extension devin-byok-plus-2.3.0.vsix`
+2. **通过命令行**：`code --install-extension devin-byok-plus-2.4.0.vsix`
 3. **拖拽安装**：直接拖拽 `.vsix` 到 VS Code 窗口
 
 详细打包说明请查看 [PACKAGING.md](./docs/PACKAGING.md)。

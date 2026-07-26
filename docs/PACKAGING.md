@@ -63,7 +63,7 @@ npx @vscode/vsce package --no-dependencies
 
 ```json
 {
-  "version": "2.3.0"  // 主版本.次版本.修订号
+  "version": "2.4.0"  // 主版本.次版本.修订号
 }
 ```
 
@@ -91,7 +91,7 @@ npx @vscode/vsce package --no-dependencies
 成功打包后会在 `build/` 目录生成：
 
 ```
-build/devin-byok-plus-2.3.0.vsix
+build/devin-byok-plus-2.4.0.vsix
 ```
 
 文件命名格式：`{name}-{version}.vsix`
@@ -109,7 +109,7 @@ build/devin-byok-plus-2.3.0.vsix
 ### 方法 2：通过命令行安装
 
 ```bash
-code --install-extension build/devin-byok-plus-2.3.0.vsix
+code --install-extension build/devin-byok-plus-2.4.0.vsix
 ```
 
 ### 方法 3：手动安装

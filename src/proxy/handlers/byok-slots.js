@@ -107,12 +107,13 @@ export function thinkingEffortToAnthropicBudget(effort) {
   return map[sanitizeThinkingEffort(effort)] || 0;
 }
 
-export function thinkingEffortToOpenAIReasoningEffort(effort) {
+export function thinkingEffortToOpenAIReasoningEffort(effort, model = "") {
   const normalized = sanitizeThinkingEffort(effort);
   if (!normalized) {
     return "";
   }
-  return normalized === "max" ? "xhigh" : normalized;
+  const supportsMax = /^gpt-5\.6(?:-|$)/i.test(String(model || "").trim().replace(/-thinking$/i, ""));
+  return normalized === "max" && !supportsMax ? "xhigh" : normalized;
 }
 
 export function thinkingEffortToGeminiLevel(effort) {

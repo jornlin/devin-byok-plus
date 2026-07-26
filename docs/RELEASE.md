@@ -26,8 +26,9 @@ npm run release
 
 就这么简单！脚本会自动完成：
 - 更新 `package.json` 中的版本号
-- 在 `CHANGELOG.md` 中添加变更记录
 - 如果 `autoPackage: true`，自动执行打包
+
+> **注意**：脚本**不再**自动写入 `CHANGELOG.md`（自 v2.2.0 起移除，避免重复追加）。请在发布后手动把 `release.config.json` 的变更内容整理进 `CHANGELOG.md` 对应版本段落。
 
 ## 配置说明
 
@@ -36,9 +37,20 @@ npm run release
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `version` | string | ✓ | 新版本号，格式为 `x.y.z` |
-| `changeType` | string | ✓ | 变更类型，见下表 |
-| `changes` | string[] | ✓ | 变更内容列表 |
+| `changeType` | string | ✓ | 主变更类型，见下表（对应 `changes` 数组的分组） |
+| `changes` | string[] | ✓ | 主变更内容列表（归入 `changeType` 分组） |
+| `additionalChanges` | object | ✗ | 附加分组，键为变更类型（`Changed` / `Fixed` 等）、值为字符串数组；用于一次发布同时包含多种类型的变更 |
 | `autoPackage` | boolean | ✗ | 是否自动打包（默认 false） |
+| `releaseDate` | string | ✗ | 发布日期（`YYYY-MM-DD`），供 CHANGELOG 手动整理时参考 |
+
+> `additionalChanges` 示例（发布脚本仅校验 `version` / `changeType` / `changes`，`additionalChanges` 供手动整理 CHANGELOG 时参考）：
+>
+> ```json
+> "additionalChanges": {
+>   "Changed": ["调整了某项默认行为"],
+>   "Fixed": ["修复了某个边角 bug"]
+> }
+> ```
 
 ### 变更类型（changeType）
 

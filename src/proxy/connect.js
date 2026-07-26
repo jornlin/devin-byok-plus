@@ -77,3 +77,32 @@ export function streamHeaders() {
     "transfer-encoding": "chunked"
   };
 }
+export const PASSTHROUGH_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade"
+]);
+export function sanitizeUpstreamResponseHeaders(headers, dropContentLength = false) {
+  const out = {};
+  for (const [key, value] of Object.entries(headers || {})) {
+    const lower = key.toLowerCase();
+    if (PASSTHROUGH_HOP_HEADERS.has(lower)) {
+      continue;
+    }
+    if (dropContentLength && lower === "content-length") {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+export function bufferedResponseHeaders(headers, contentLength) {
+  const out = sanitizeUpstreamResponseHeaders(headers, true);
+  out["content-length"] = contentLength;
+  return out;
+}

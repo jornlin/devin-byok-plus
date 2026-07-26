@@ -1,17 +1,30 @@
 {
-  "version": "2.3.0",
-  "releaseDate": "2026-07-04",
+  "version": "2.4.0",
+  "releaseDate": "2026-07-26",
   "changeType": "Added",
   "changes": [
-    "移植上游 v2.4.0 OpenAI service_tier=fast：各 BYOK 槽位支持独立配置 OPENAI_SERVICE_TIER（取值 fast 或空），启用 OpenAI 优先级通道。UI 层新增 GPT Fast Mode 下拉选项（仅在协议为 openai/gpt 时显示），模型名以 -priority 结尾时自动启用 fast 模式。三层回退机制：slot 级 → BYOK1 → 全局",
-    "手动协议选择：BYOK 配置卡片新增 Protocol 下拉框（anthropic / openai / gemini），支持手动覆盖自动检测的 provider。协议变更时思考强度下拉和 GPT Fast Mode 行会联动显隐/重建选项，避免协议与参数不匹配。存储于 BYOKn_PROTOCOL 环境变量",
-    "方案编辑器 UI 优化：从嵌入式改为独立折叠卡片，默认隐藏以减少首屏信息密度。卡片标题栏显示当前激活方案名，支持点击展开/折叠。Tutorial 教程文案同步更新",
-    "profileStore 支持 protocol 字段持久化到 profiles.json，新增 sanitizeProtocol / detectModelProtocol / resolveEffectiveProtocol 逻辑",
-    "diagnostics.js 的 resolveDiagnosticModelRoute 扩展支持 4 个 BYOK 槽位的 service tier 读取（BYOK1=Opus, BYOK2=Opus Thinking, BYOK3=Sonnet, BYOK4=Sonnet Thinking）",
-    "sidebarTemplate.js 新增 buildProtocolOptions() 和 buildOpenAIServiceTierOptions() helper，统一下拉选项生成逻辑",
-    "修复协议手动切换后思考强度选项未联动更新的问题",
-    "修复 GPT Fast Mode 行在非 OpenAI 协议下仍显示的问题（现按 protocol 严格控制可见性）"
+    "移植上游 v2.6.1 GPT-5.6 推理全链路（扩展至 4 个 BYOK 槽位）：新增 OPENAI_REASONING_MODE（standard/pro，仅 GPT-5.6 系列，写入 Responses API 的 reasoning.mode）；gpt-5.6* 模型保留 max 思考强度（其他 GPT 仍映射为 xhigh）；OPENAI_SERVICE_TIER 新增 priority 取值（OpenAI 官方优先处理）。UI 各槽位新增「推理模式」下拉，仅在模型为 gpt-5.6 时显示，支持载入/保存/自动保存与热重载",
+    "移植上游 v2.6.0 转发工具过滤：通过 TOOL_ALLOWLIST / TOOL_DENYLIST / TOOL_ALLOW_PREFIXES / TOOL_DENY_PREFIXES（及 BYOK_ 前缀别名）按精确名或前缀通配过滤转发给上游的工具，deny 优先于 allow，Anthropic/OpenAI 两路均接入",
+    "移植上游 v2.6.0 网关能力缓存磁盘持久化：通过 GATEWAY_CAPABILITY_CACHE_PATH 将网关能力探测结果落盘并跨进程/重启复用（懒加载 + 写时持久化），扩展进程启动时自动注入缓存路径至用户配置目录",
+    "移植上游 v2.6.0 SSE 帧拆分健壮化：splitSseFrames 同时支持 LF 与 CRLF 分隔，避免混合换行下的帧解析错误；日志脱敏 sanitizeLogBody 加固（结构化 secret + 裸 token，Bearer 收紧匹配）",
+    "移植上游 v2.5.0 缓冲响应头重构：非流式缓冲响应剥离逐跳头（transfer-encoding/connection 等）与陈旧 content-length 后写入真实字节长度，避免残留 chunked 框架头",
+    "系统页新增「插件信息」卡片：显示当前安装版本与 Git 远端地址",
+    "状态栏 API 余额显示（PR #2）：显示当前激活方案的 API 余额（NewAPI/One-API），每 2 分钟自动刷新、切换方案时刷新、支持点击手动刷新；方案新增可选字段 balanceToken 与 userId，仅当配置其一时才显示并查询，未配置用户零网络请求",
+    "GitHub 版本更新提示：新增 VersionChecker 服务每小时轮询 GitHub Releases API，侧栏顶部显示更新提示条，支持一键跳转 Release 页与忽略当前版本，版本信息持久化到 globalState",
+    "新增回归单测：缓冲响应头、SSE 帧拆分、日志脱敏、工具过滤、网关缓存持久化、GPT-5.6 推理（Responses max/pro、Chat 回退省略 mode、运行时槽位感知净化）、诊断 priority tier，共 9 项"
   ],
+  "additionalChanges": {
+    "Changed": [
+      "DeepSeek/Kimi Anthropic 路径自动修正（PR #4）：按 hostname 自动把 /v1/messages 修正为 /anthropic，增强 404 回退到 chat/completions 与 provider 回退逻辑",
+      "配置方案列表去掉固定 max-height，避免下方空白浪费"
+    ],
+    "Fixed": [
+      "补齐 reasoning.mode 写侧白名单清洗（BYOK1-4，取值限 standard/pro），与既有 THINKING_EFFORT 清洗对齐，避免非法值落盘 .env",
+      "诊断面板 service_tier 白名单从仅 fast 扩为 fast/priority，修复对 priority tier 的错误显示",
+      "修复 API 余额查询鉴权：改用 Bearer balanceToken + New-Api-User userId 格式，恢复可用端点并修正 _parseBalance 解析逻辑（经实测诊断确认）",
+      "PR #2/#4 合并后运行时加固：fetchApiBalance 包裹 try/catch 消除 unhandled rejection 风险，清理 resolveEffectiveProvider 死分支，新增 pr-fixes.test.mjs（28 用例）"
+    ]
+  },
   "breaking": false,
   "autoPackage": true,
   "repository": {

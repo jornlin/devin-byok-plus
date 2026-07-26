@@ -83,6 +83,13 @@ test('诊断模型路由', async (t) => {
     const r = d.resolveDiagnosticModelRoute('gpt-5-4-xhigh-priority', { DEFAULT_MODEL: '' });
     assert.strictEqual(r.serviceTier, 'fast');
   });
+  await t.test('OpenAI 模型的 service_tier=priority 被保留（对齐上游 v2.6.1）', () => {
+    const r = d.resolveDiagnosticModelRoute('MODEL_GPT_4O', {
+      DEFAULT_MODEL: '',
+      OPENAI_SERVICE_TIER: 'priority',
+    });
+    assert.strictEqual(r.serviceTier, 'priority');
+  });
 });
 
 test('checkModelRoutingDiagnostic', async (t) => {

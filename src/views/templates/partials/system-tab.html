@@ -1,6 +1,16 @@
 <!-- 系统补丁 Tab -->
 <div class="card" style="margin-bottom:12px">
     <div class="card-head between">
+        <span>插件信息</span>
+        <span class="badge badge-ok">v{{pluginVersion}}</span>
+    </div>
+    <div class="plugin-info">
+        <div class="plugin-info-row"><b>当前安装版本</b><code id="pluginInstalledVersion">v{{pluginVersion}}</code></div>
+        <div class="plugin-info-row"><b>Git 远端地址</b><code id="pluginGitRemote">{{pluginGitRemote}}</code></div>
+    </div>
+</div>
+<div class="card" style="margin-bottom:12px">
+    <div class="card-head between">
         <span>补丁管理</span>
         <span id="patchBadge" class="badge {{patchBadgeClass}}">{{patchBadgeText}}</span>
     </div>

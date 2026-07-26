@@ -555,6 +555,19 @@
     @apply text-vslink font-bold;
   }
 
+  .plugin-info {
+    @apply grid gap-2;
+  }
+  .plugin-info-row {
+    @apply border border-vsborder rounded-md px-2 py-1.5 bg-vsinput;
+  }
+  .plugin-info-row b {
+    @apply block text-vslink text-[9px] font-bold uppercase tracking-wide mb-1;
+  }
+  .plugin-info-row code {
+    @apply text-vsfg font-mono text-[10px] leading-snug break-all;
+  }
+
   .guide-body {
     @apply flex flex-col gap-2 text-vsdesc text-[10px] leading-relaxed;
   }

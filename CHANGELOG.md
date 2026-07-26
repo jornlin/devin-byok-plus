@@ -5,6 +5,32 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.4.0] - 2026-07-26
+
+移植上游 v2.5.0 / v2.6.0 / v2.6.1 三个 release 的能力，并全部适配到 fork 的 4 个 BYOK 槽位。
+
+### Added
+- **GPT-5.6 推理全链路**（移植上游 v2.6.1，扩展至 4 槽位）：新增 `OPENAI_REASONING_MODE`（取值 `standard` / `pro`，仅 `gpt-5.6*` 系列生效，写入 Responses API 的 `reasoning.mode`，Chat Completions 回退不携带）。`gpt-5.6*` 模型保留 `max` 思考强度（其他 GPT 仍映射为 `xhigh`）。`OPENAI_SERVICE_TIER` 新增 `priority` 取值（OpenAI 官方优先处理）。UI 各 BYOK 槽位新增「推理模式」下拉，仅在模型为 `gpt-5.6` 系列时显示，支持载入 / 保存 / 自动保存与 `.env` 热重载；三层回退：slot 级 → BYOK1 → 全局 `OPENAI_REASONING_MODE`。
+- **转发工具过滤**（移植上游 v2.6.0）：通过 `TOOL_ALLOWLIST` / `TOOL_DENYLIST` / `TOOL_ALLOW_PREFIXES` / `TOOL_DENY_PREFIXES`（及 `BYOK_` 前缀别名）按精确名或前缀通配（`mcp1_*`）过滤转发给上游的工具，`deny` 优先于 `allow`；Anthropic 与 OpenAI 两条转发路径均接入，日志显示 `filtered=N→M`。
+- **网关能力缓存磁盘持久化**（移植上游 v2.6.0）：通过 `GATEWAY_CAPABILITY_CACHE_PATH` 将网关能力探测结果落盘（懒加载 + 写时持久化），跨进程与重启复用，避免每次启动重新探测。扩展启动时自动注入缓存路径至用户配置目录（`gateway-capability-cache.json`），hybrid 与 inference 两进程共享。
+- **插件信息卡片**（移植上游 v2.6.0）：系统页新增「插件信息」卡片，显示当前安装版本与 Git 远端地址。
+- **状态栏 API 余额显示**（PR #2，fork 自有）：状态栏新增当前激活方案的 API 余额（NewAPI / One-API），每 2 分钟自动刷新、切换方案时刷新、支持点击手动刷新。方案新增可选字段 `balanceToken`（访问令牌）与 `userId`；仅当配置了其一时才显示并查询，未配置用户零网络请求。
+- **GitHub 版本更新提示**（fork 自有）：新增 `VersionChecker` 服务，每小时轮询 GitHub Releases API 检测新版本；侧栏顶部显示更新提示条，支持一键跳转 Release 页与忽略当前版本；`latestVersion` / `latestReleaseUrl` 持久化到 globalState，避免重启后短时间内提示消失。
+- 新增回归单测 9 项：缓冲响应头、SSE 帧拆分（LF/CRLF）、日志脱敏、工具过滤、网关缓存持久化、GPT-5.6 推理（Responses `max`/`pro`、Chat 回退省略 `mode`、运行时槽位感知净化）、诊断 `priority` tier。
+
+### Changed
+- **缓冲响应头重构**（移植上游 v2.5.0）：非流式缓冲响应新增 `bufferedResponseHeaders`，剥离逐跳头（`transfer-encoding` / `connection` / `keep-alive` 等）与陈旧 `content-length`（含大小写变体）后写入真实字节长度，避免缓冲响应残留 `chunked` 框架头。
+- **SSE 帧拆分健壮化**（移植上游 v2.6.0）：`splitSseFrames` 同时支持 LF（`\n\n`）与 CRLF（`\r\n\r\n`）分隔，避免混合换行场景下的帧解析错误；两处流处理（OpenAI / Anthropic）统一替换。
+- **日志脱敏加固**（移植上游 v2.6.0）：`sanitizeLogBody` 先脱敏结构化 secret（`api_key` / `token` / `secret` / `password` / `authorization`）再脱敏裸 token（`sk-*` / `Bearer *` / `key-*`），`Bearer` 匹配收紧为 `[^\s",}]+`，并对非字符串输入做 `String()` 防御。
+- **DeepSeek / Kimi Anthropic 路径自动修正**（PR #4，fork 自有）：按 hostname 自动把 `/v1/messages` 修正为 `/anthropic`，并增强 404 时回退到 `chat/completions` 与 provider 回退逻辑。
+- 配置方案列表去掉固定 `max-height`，避免下方空白浪费。
+
+### Fixed
+- 补齐 `reasoning.mode` 写侧白名单清洗（BYOK1-4，取值限 `standard` / `pro`），与既有 `THINKING_EFFORT` 清洗对齐，避免非法值经手动改 `.env` / 配置导入落盘。运行时读侧本已有兜底（不会发往 API），此为写侧一致性加固。
+- 诊断面板 `service_tier` 白名单从仅识别 `fast` 扩为 `fast` / `priority`（`resolveDiagnosticModelRoute` 与 Inline/Fast 首包风险详情两处），修复配置 `priority` 时诊断显示「未覆盖 tier」的错误。
+- 修复 API 余额查询鉴权：改用正确格式 `Bearer <balanceToken>` + `New-Api-User: <userId>`，恢复可用查询端点并修正 `_parseBalance` 解析逻辑（经实测诊断确认）。
+- PR #2/#4 合并后运行时加固：`fetchApiBalance` 整体包裹 try/catch，消除 4 处 fire-and-forget 调用点的 unhandled rejection 风险；清理 `chat.js` 中 `resolveEffectiveProvider` 的死分支并移除未使用导入；新增 `pr-fixes.test.mjs`（28 用例，覆盖 `correctApiPathForProvider` / `shouldFallbackToChatCompletions` / `_parseBalance`）。
+
 ## [2.3.0] - 2026-07-04
 
 ### Added

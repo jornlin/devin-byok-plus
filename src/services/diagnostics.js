@@ -191,8 +191,10 @@ function resolveDiagnosticModelRoute(requested, config) {
     serviceTier = config.OPENAI_SERVICE_TIER;
   }
   
-  // 白名单过滤
-  serviceTier = String(serviceTier || '').trim().toLowerCase() === 'fast' ? 'fast' : undefined;
+  // 白名单过滤：接受 fast / priority（对齐上游 v2.6.1）
+  serviceTier = ['fast', 'priority'].includes(String(serviceTier || '').trim().toLowerCase())
+    ? String(serviceTier).trim().toLowerCase()
+    : undefined;
   
   return {
     requested: req,
@@ -282,9 +284,11 @@ function checkInlineFastTimeoutRisk(config) {
   }
   const hasFastTier =
     isOpenAI &&
-    String(config.BYOK1_OPENAI_SERVICE_TIER || config.OPENAI_SERVICE_TIER || '')
-      .trim()
-      .toLowerCase() === 'fast';
+    ['fast', 'priority'].includes(
+      String(config.BYOK1_OPENAI_SERVICE_TIER || config.OPENAI_SERVICE_TIER || '')
+        .trim()
+        .toLowerCase()
+    );
   const detail =
     risks.length > 0
       ? 'Inline/Fast 首包窗口较紧（当前补全超时约 ' +

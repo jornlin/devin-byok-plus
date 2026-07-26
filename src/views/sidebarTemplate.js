@@ -42,12 +42,29 @@ function renderSidebarHtml(ctx) {
     }).join('');
   };
 
-  // GPT Fast Mode (service_tier) 下拉选项：只接受 fast 或空
+  // GPT Fast Mode (service_tier) 下拉选项：接受 fast / priority 或空
   const buildOpenAIServiceTierOptions = (selected) => {
-    const cur = String(selected || '').trim().toLowerCase() === 'fast' ? 'fast' : '';
+    const norm = String(selected || '').trim().toLowerCase();
+    const cur = ['fast', 'priority'].includes(norm) ? norm : '';
     const opts = [
       ['', '默认 · 不覆盖 service_tier'],
       ['fast', 'Fast · service_tier=fast'],
+      ['priority', 'Priority · service_tier=priority'],
+    ];
+    return opts.map(([v, label]) => {
+      const sel = cur === v ? ' selected' : '';
+      return `<option value="${esc(v)}"${sel}>${esc(label)}</option>`;
+    }).join('');
+  };
+
+  // GPT-5.6 推理模式 (reasoning.mode) 下拉选项：接受 standard / pro 或空
+  const buildOpenAIReasoningModeOptions = (selected) => {
+    const norm = String(selected || '').trim().toLowerCase();
+    const cur = ['standard', 'pro'].includes(norm) ? norm : '';
+    const opts = [
+      ['', '默认 · 不覆盖 reasoning.mode'],
+      ['standard', 'Standard · reasoning.mode=standard'],
+      ['pro', 'Pro · reasoning.mode=pro'],
     ];
     return opts.map(([v, label]) => {
       const sel = cur === v ? ' selected' : '';
@@ -65,6 +82,18 @@ function renderSidebarHtml(ctx) {
   const byok2ServiceTier = String(ctx.tmp2?.BYOK2_OPENAI_SERVICE_TIER || '').trim();
   const byok3ServiceTier = String(ctx.tmp2?.BYOK3_OPENAI_SERVICE_TIER || '').trim();
   const byok4ServiceTier = String(ctx.tmp2?.BYOK4_OPENAI_SERVICE_TIER || '').trim();
+
+  // Slot 级 reasoning.mode 取值：slot#1 回退顶层 OPENAI_REASONING_MODE
+  const byok1ReasoningMode = String(ctx.tmp2?.BYOK1_OPENAI_REASONING_MODE || ctx.tmp2?.OPENAI_REASONING_MODE || '').trim();
+  const byok2ReasoningMode = String(ctx.tmp2?.BYOK2_OPENAI_REASONING_MODE || '').trim();
+  const byok3ReasoningMode = String(ctx.tmp2?.BYOK3_OPENAI_REASONING_MODE || '').trim();
+  const byok4ReasoningMode = String(ctx.tmp2?.BYOK4_OPENAI_REASONING_MODE || '').trim();
+
+  // 各槽位 reasoning.mode 行的显隐：仅当模型为 gpt-5.6 系列时显示
+  const byok1IsGpt56 = thinkingEffort.isGpt56Model(tmp27);
+  const byok2IsGpt56 = thinkingEffort.isGpt56Model(tmp30);
+  const byok3IsGpt56 = thinkingEffort.isGpt56Model(tmp33c);
+  const byok4IsGpt56 = thinkingEffort.isGpt56Model(tmp33g);
 
   // 准备模板数据
   const templateData = {
@@ -120,10 +149,12 @@ function renderSidebarHtml(ctx) {
       thinkingEffort.protocolToThinkingProvider(byok1Protocol) || thinkingEffort.detectModelProvider(tmp27)
     )),
     byok1ThinkingOptions: byok1Protocol
-      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok1Protocol), tmp31)
+      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok1Protocol), tmp31, tmp27)
       : thinkingEffort.buildThinkingEffortOptionsHtml(tmp27, tmp31),
     byok1ProtocolOptions: buildProtocolOptions(byok1Protocol),
     byok1ServiceTierOptions: buildOpenAIServiceTierOptions(byok1ServiceTier),
+    byok1ReasoningModeOptions: buildOpenAIReasoningModeOptions(byok1ReasoningMode),
+    byok1ReasoningModeRowHidden: byok1IsGpt56 ? '' : 'hidden',
     // BYOK #1 卡片状态（默认折叠）
     byok1HeadCollapsed: 'collapsed',
     byok1BodyHidden: 'hidden',
@@ -138,10 +169,12 @@ function renderSidebarHtml(ctx) {
       thinkingEffort.protocolToThinkingProvider(byok2Protocol) || thinkingEffort.detectModelProvider(tmp30)
     )),
     byok2ThinkingOptions: byok2Protocol
-      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok2Protocol), tmp32)
+      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok2Protocol), tmp32, tmp30)
       : thinkingEffort.buildThinkingEffortOptionsHtml(tmp30, tmp32),
     byok2ProtocolOptions: buildProtocolOptions(byok2Protocol),
     byok2ServiceTierOptions: buildOpenAIServiceTierOptions(byok2ServiceTier),
+    byok2ReasoningModeOptions: buildOpenAIReasoningModeOptions(byok2ReasoningMode),
+    byok2ReasoningModeRowHidden: byok2IsGpt56 ? '' : 'hidden',
     // BYOK #2 卡片状态（默认折叠）
     byok2HeadCollapsed: 'collapsed',
     byok2BodyHidden: 'hidden',
@@ -156,10 +189,12 @@ function renderSidebarHtml(ctx) {
       thinkingEffort.protocolToThinkingProvider(byok3Protocol) || thinkingEffort.detectModelProvider(tmp33c)
     )),
     byok3ThinkingOptions: byok3Protocol
-      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok3Protocol), tmp33d)
+      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok3Protocol), tmp33d, tmp33c)
       : thinkingEffort.buildThinkingEffortOptionsHtml(tmp33c, tmp33d),
     byok3ProtocolOptions: buildProtocolOptions(byok3Protocol),
     byok3ServiceTierOptions: buildOpenAIServiceTierOptions(byok3ServiceTier),
+    byok3ReasoningModeOptions: buildOpenAIReasoningModeOptions(byok3ReasoningMode),
+    byok3ReasoningModeRowHidden: byok3IsGpt56 ? '' : 'hidden',
     // BYOK #3 卡片状态（默认折叠）
     byok3HeadCollapsed: 'collapsed',
     byok3BodyHidden: 'hidden',
@@ -174,10 +209,12 @@ function renderSidebarHtml(ctx) {
       thinkingEffort.protocolToThinkingProvider(byok4Protocol) || thinkingEffort.detectModelProvider(tmp33g)
     )),
     byok4ThinkingOptions: byok4Protocol
-      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok4Protocol), tmp33h)
+      ? thinkingEffort.buildThinkingEffortOptionsHtmlForProvider(thinkingEffort.protocolToThinkingProvider(byok4Protocol), tmp33h, tmp33g)
       : thinkingEffort.buildThinkingEffortOptionsHtml(tmp33g, tmp33h),
     byok4ProtocolOptions: buildProtocolOptions(byok4Protocol),
     byok4ServiceTierOptions: buildOpenAIServiceTierOptions(byok4ServiceTier),
+    byok4ReasoningModeOptions: buildOpenAIReasoningModeOptions(byok4ReasoningMode),
+    byok4ReasoningModeRowHidden: byok4IsGpt56 ? '' : 'hidden',
     // BYOK #4 卡片状态（默认折叠）
     byok4HeadCollapsed: 'collapsed',
     byok4BodyHidden: 'hidden',
@@ -242,6 +279,10 @@ function renderSidebarHtml(ctx) {
 
     // 日志内容
     logContent: tmp36,
+
+    // 插件信息卡片
+    pluginVersion: esc(ctx.pluginVersion || 'unknown'),
+    pluginGitRemote: esc(ctx.pluginGitRemote || '未配置'),
   };
 
   // 使用模板加载器渲染
