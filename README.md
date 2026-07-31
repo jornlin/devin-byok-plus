@@ -95,6 +95,22 @@ Claude / GPT / Gemini —— 4 个独立 BYOK 槽位、多方案切换、按厂�
 本地代理的先河。本仓库在其基础上扩展了 4 槽位、方案系统、模型清单接管等功能，
 完整变更见 [CHANGELOG](CHANGELOG.md)。
 
+## 交流
+
+使用问题、Bug 反馈、功能建议都欢迎。Bug 与需求建议优先走
+[Issues](https://github.com/jornlin/devin-byok-plus/issues)（便于追踪），
+日常交流可加 Telegram 群。
+
+<div align="center">
+  <a href="https://t.me/devin_byok_plus">
+    <img src="resources/images/telegram-qr.png" alt="Telegram 群组 @devin_byok_plus" width="200">
+  </a>
+  <p>
+    <a href="https://t.me/devin_byok_plus"><strong>Telegram 群组</strong></a> ·
+    <code>@devin_byok_plus</code>
+  </p>
+</div>
+
 ## 许可
 
 [MIT](LICENSE.txt)

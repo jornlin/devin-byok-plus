@@ -29,6 +29,9 @@ _deob_test/
 **/.env
 *.log
 
+# README 用的图片资源（仅文档展示，插件运行时不需要）
+resources/images/**
+
 # 开发脚本和文档
 scripts/**
 package.sh
