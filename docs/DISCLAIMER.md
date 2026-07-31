@@ -2,7 +2,7 @@
 
 > **请在安装、使用、分发或二次开发本软件前完整阅读本文档。**
 
-本文档是 [README.md](README.md) 法律章节的扩展版，适用于仓库源码、发布包及衍生作品。
+本文档是 [README.md](../README.md) 法律章节的扩展版，适用于仓库源码、发布包及衍生作品。
 
 ---
 
@@ -89,13 +89,13 @@
 
 ## 6. 源码分发说明
 
-本仓库以 [MIT License](LICENSE.txt) 发布可读源码。Fork 或二次打包时，你仍须遵守本免责声明及 MIT License 中的责任限制。
+本仓库以 [MIT License](../LICENSE.txt) 发布可读源码。Fork 或二次打包时，你仍须遵守本免责声明及 MIT License 中的责任限制。
 
 ---
 
 ## 7. 商标与知识产权
 
-- 本项目代码以 [MIT License](LICENSE.txt) 发布（见文件内版权署名）。
+- 本项目代码以 [MIT License](../LICENSE.txt) 发布（见文件内版权署名）。
 - **Devin、Windsurf、Codeium、Cognition、Devin Local、Anthropic、Claude、OpenAI、GPT、Google、Gemini** 等名称及相关商标、标识归各自权利人所有。
 - 本仓库**不授予**任何第三方商标、商业标识或专有协议的使用权。
 - 仓库中可能包含基于公开行为观察实现的协议适配逻辑；**不表示**获得任何专有 API 或协议的正式授权。

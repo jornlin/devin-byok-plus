@@ -26,7 +26,7 @@
 
 仓库已用 `.gitignore` 排除上述路径；提交前请执行 `git status` 人工复核。
 
-环境变量模板见 [proxy-scripts/.env.example](proxy-scripts/.env.example)。
+环境变量模板见 [proxy-scripts/.env.example](../proxy-scripts/.env.example)。
 
 ## 源码说明
 
@@ -68,4 +68,4 @@
 
 ## 许可
 
-贡献的文档与代码按 [MIT License](LICENSE.txt) 授权；提交 PR 即表示你同意此许可。
+贡献的文档与代码按 [MIT License](../LICENSE.txt) 授权；提交 PR 即表示你同意此许可。

@@ -80,7 +80,7 @@
 | 完整诊断报告 | 可能含路径与进程信息 |
 | `_deob_test/` | 本地测试目录，勿提交 |
 
-环境变量占位模板（可提交）：[proxy-scripts/.env.example](proxy-scripts/.env.example)
+环境变量占位模板（可提交）：[proxy-scripts/.env.example](../proxy-scripts/.env.example)
 
 ## Security-Related Environment Variables
 
