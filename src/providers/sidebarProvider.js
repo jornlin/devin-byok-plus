@@ -25,6 +25,13 @@ try {
     },
     workspace: {
       openTextDocument: () => undefined,
+      getConfiguration: () => ({
+        get: () => undefined,
+        update: () => Promise.resolve(),
+      }),
+    },
+    ConfigurationTarget: {
+      Global: 1,
     },
     env: {
       clipboard: {
@@ -60,7 +67,9 @@ const profileStore_1 = require('../services/profileStore');
 const diagnostics_1 = require('../services/diagnostics');
 const promptTemplates_1 = require('../services/promptTemplates');
 const environmentProbe_1 = require('../services/environmentProbe');
+const preferredAgent_1 = require('../services/preferredAgent');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
+const KEY_PREFER_CASCADE = 'devin-byok-plus.preferCascadeAgent';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH = 'windsurf-byok-plus.patchExtensionPath';
 const LEGACY_KEY_PATCH_EXTENSION_PATH_2 = 'devin-byok-plus.patchExtensionPath';
@@ -195,6 +204,7 @@ class SidebarProvider {
       proxy: this.proxyManager.getStatus(),
       patch: this.getPatchStatus(),
       config: this.getEditingScopedConfig(),
+      preferCascade: this.getPreferCascadeState(),
       logs: this.logLines.slice(-50),
       versionUpdate: this.versionChecker ? this.versionChecker.getUpdateInfo() : null,
     });
@@ -205,6 +215,27 @@ class SidebarProvider {
       type: 'versionUpdate',
       versionUpdate: this.versionChecker.getUpdateInfo(),
     });
+  }
+  /**
+   * 计算「默认 Cascade」开关的展示状态。
+   * 以 Devin 的实际配置为准（用户可能直接在 Devin 设置里改过），
+   * globalState 只用于记住「用户是否显式关闭过」以免每次激活都重新打开。
+   * @returns {{checked:boolean, foreign:string, stale:boolean}}
+   *   stale = 记录声称开启但实际未生效（写入失败/被外部改掉），用于提示用户
+   */
+  getPreferCascadeState() {
+    const stored = this.context.globalState.get(KEY_PREFER_CASCADE);
+    const actual = preferredAgent_1.isCascadePreferred(vscode);
+    const foreign = preferredAgent_1.getForeignPreference(vscode);
+    if (foreign) {
+      // 用户手动指定了别的 agent —— 开关显示关闭，并在提示里说明原因
+      return { checked: false, foreign, stale: false };
+    }
+    if (stored === false) {
+      return { checked: false, foreign: '', stale: false };
+    }
+    // 未记录（首次）或记录为开启：以实际配置为准展示，避免"显示开着但没生效"
+    return { checked: actual, foreign: '', stale: stored === true && !actual };
   }
   /**
    * 把方案投影成 webview 配置，但保留全局项的实际生效值。
@@ -1697,6 +1728,46 @@ class SidebarProvider {
         await this.context.globalState.update(KEY_AUTO_START_PROXY, tmp02.value === true);
         break;
       }
+      case 'setPreferCascadeAgent': {
+        // 「Devin Local」走 ACP 协议 + 独立 CLI，不经过本插件代理，其模型清单里没有
+        // BYOK 条目（显示 None selected）。把 Devin 的 preferredAgent 设为 Cascade
+        // 哨兵值即可让新标签页默认用 Cascade。这写的是 Devin 自身的用户设置。
+        const enabled = tmp02.value === true;
+        await this.context.globalState.update(KEY_PREFER_CASCADE, enabled);
+        try {
+          const result = await preferredAgent_1.applyCascadePreference(vscode, enabled);
+          if (result.skipped && result.foreign) {
+            this.postActionState(
+              'proxy',
+              'success',
+              '检测到你已手动指定默认 Agent 为「' +
+                result.foreign +
+                '」，已保留该设置不做覆盖。如需默认使用 Cascade，请先在 Devin 设置中清除 acp.preferredAgent。'
+            );
+          } else if (enabled) {
+            this.postActionState(
+              'proxy',
+              'success',
+              result.changed
+                ? '已设为默认使用 Cascade。重载窗口后新建会话不再默认 Devin Local。'
+                : '已是默认使用 Cascade。'
+            );
+          } else {
+            this.postActionState(
+              'proxy',
+              'success',
+              result.changed
+                ? '已关闭。新建会话将回到 Devin 的默认行为（通常是 Devin Local）。'
+                : '已关闭。'
+            );
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.postActionState('proxy', 'error', '写入 Devin 默认 Agent 设置失败：' + msg);
+        }
+        this.refresh();
+        break;
+      }
       case 'setModelListMode': {
         // 模型列表模式是全局代理行为（非方案级配置），落盘后热更新到运行中的代理，
         // 无需重启；Devin 侧需要重新拉取 GetUserStatus 才能看到新清单
@@ -2097,6 +2168,12 @@ class SidebarProvider {
     const tmp3 = patchManager_1.PatchManager.loopbackApiUrl(tmp02.hybridPort);
     const tmp4 = patchManager_1.PatchManager.loopbackApiUrl(tmp02.inferencePort);
     const tmp5 = this.context.globalState.get(KEY_AUTO_START_PROXY) === true;
+    // 开关状态以 Devin 的实际配置为准（用户可能在 Devin 设置里直接改过），
+    // 默认开启：首次使用（globalState 未记录且未被手动指定其他 agent）时视为开
+    const preferCascadeState = this.getPreferCascadeState();
+    const preferCascadeChecked = preferCascadeState.checked;
+    const preferCascadeForeign = preferCascadeState.foreign;
+    const preferCascadeStale = preferCascadeState.stale;
     const tmp6 = tmp1.path
       ? tmp1.path.replace(/\\/g, '/').split('/').slice(-4).join('/')
       : '未找到';
@@ -2172,6 +2249,9 @@ class SidebarProvider {
       tmp3,
       tmp4,
       tmp5,
+      preferCascadeChecked,
+      preferCascadeForeign,
+      preferCascadeStale,
       tmp6,
       tmp7,
       tmp8,

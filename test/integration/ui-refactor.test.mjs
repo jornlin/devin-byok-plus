@@ -291,6 +291,105 @@ test('模型列表模式开关可见性', async (t) => {
   });
 });
 
+test('默认 Cascade 开关', async (t) => {
+  const controlTab = readFileSync(
+    join(projectRoot, 'src/views/templates/partials/control-tab.html'),
+    'utf-8'
+  );
+
+  await t.test('位于代理控制卡片且常驻可见', () => {
+    assert.ok(controlTab.includes('cfgPreferCascadeAgent'), '开关应在 control-tab');
+    const idx = controlTab.indexOf('cfgPreferCascadeAgent');
+    const before = controlTab.slice(0, idx);
+    const enclosing = before.slice(before.lastIndexOf('<div'));
+    assert.ok(
+      !/class="[^"]*\bhidden\b/.test(enclosing),
+      '所在容器不应带 hidden 类'
+    );
+  });
+
+  await t.test('默认渲染为开启状态', () => {
+    const { renderSidebarHtml } = require(join(projectRoot, 'src/views/sidebarTemplate.js'));
+    const html = renderSidebarHtml({
+      nonce: 'n', cspSource: 'c', scriptUri: 's.js', cssUri: 'c.css',
+      tmp02: { hybridPort: 3006, inferencePort: 3001, running: false, uptime: 0, requestCount: 0 },
+      tmp2: {}, tmp8: '', tmp9: false, tmp10: 'n', tmp11: 'c', tmp12: 's.js', tmp12a: 't.css',
+      tmp16: '#888', tmp17: '#888', tmp21: '#444',
+      tmp25: '', tmp26: '', tmp27: '', tmp28: '', tmp29: '', tmp30: '', tmp31: '', tmp32: '',
+      tmp3: '', tmp4: '', tmp5: false, tmp6: '',
+      tmp34: 'badge-warning', tmp35: '未安装', tmp36: '…',
+      preferCascadeChecked: true,
+    });
+    const match = html.match(/<input type="checkbox" id="cfgPreferCascadeAgent"([^>]*)>/);
+    assert.ok(match, '应渲染出 cfgPreferCascadeAgent');
+    assert.ok(/\bchecked\b/.test(match[1]), 'preferCascadeChecked=true 时应带 checked');
+  });
+
+  await t.test('关闭态不带 checked，且提示文案随外部偏好变化', () => {
+    const { renderSidebarHtml } = require(join(projectRoot, 'src/views/sidebarTemplate.js'));
+    const base = {
+      nonce: 'n', cspSource: 'c', scriptUri: 's.js', cssUri: 'c.css',
+      tmp02: { hybridPort: 3006, inferencePort: 3001, running: false, uptime: 0, requestCount: 0 },
+      tmp2: {}, tmp8: '', tmp9: false, tmp10: 'n', tmp11: 'c', tmp12: 's.js', tmp12a: 't.css',
+      tmp16: '#888', tmp17: '#888', tmp21: '#444',
+      tmp25: '', tmp26: '', tmp27: '', tmp28: '', tmp29: '', tmp30: '', tmp31: '', tmp32: '',
+      tmp3: '', tmp4: '', tmp5: false, tmp6: '',
+      tmp34: 'badge-warning', tmp35: '未安装', tmp36: '…',
+    };
+    const off = renderSidebarHtml({ ...base, preferCascadeChecked: false });
+    const m = off.match(/<input type="checkbox" id="cfgPreferCascadeAgent"([^>]*)>/);
+    assert.ok(!/\bchecked\b/.test(m[1]), '关闭态不应带 checked');
+    assert.ok(off.includes('避免新会话落到 Devin Local'), '默认提示文案');
+
+    const foreign = renderSidebarHtml({
+      ...base,
+      preferCascadeChecked: false,
+      preferCascadeForeign: 'claude-code',
+    });
+    assert.ok(
+      foreign.includes('已手动指定为 claude-code'),
+      '用户指定其他 agent 时应提示，避免误解为开关失灵'
+    );
+  });
+
+  await t.test('模板占位符全部被解析（无残留 {{...}}）', () => {
+    const { renderSidebarHtml } = require(join(projectRoot, 'src/views/sidebarTemplate.js'));
+    const html = renderSidebarHtml({
+      nonce: 'n', cspSource: 'c', scriptUri: 's.js', cssUri: 'c.css',
+      tmp02: { hybridPort: 3006, inferencePort: 3001, running: false, uptime: 0, requestCount: 0 },
+      tmp2: {}, tmp8: '', tmp9: false, tmp10: 'n', tmp11: 'c', tmp12: 's.js', tmp12a: 't.css',
+      tmp16: '#888', tmp17: '#888', tmp21: '#444',
+      tmp25: '', tmp26: '', tmp27: '', tmp28: '', tmp29: '', tmp30: '', tmp31: '', tmp32: '',
+      tmp3: '', tmp4: '', tmp5: false, tmp6: '',
+      tmp34: 'badge-warning', tmp35: '未安装', tmp36: '…',
+      preferCascadeChecked: true,
+    });
+    // interpolate() 对未匹配的键会原样保留 {{key}}，会直接显示在 UI 上
+    const leftovers = [...html.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
+    assert.deepEqual(leftovers, [], '不应有未解析的占位符: ' + leftovers.join(', '));
+  });
+
+  await t.test('切换时发送 setPreferCascadeAgent 消息', () => {
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    assert.ok(sidebarJs.includes('cfgPreferCascadeAgent'), 'sidebar.js 应监听该 change');
+    assert.ok(sidebarJs.includes('setPreferCascadeAgent'), '应发送 setPreferCascadeAgent');
+    const provider = readFileSync(join(projectRoot, 'src/providers/sidebarProvider.js'), 'utf-8');
+    assert.ok(
+      provider.includes("case 'setPreferCascadeAgent'"),
+      'sidebarProvider 应处理该消息'
+    );
+  });
+
+  await t.test('启动时应用默认开启（用户未显式关闭过）', () => {
+    const ext = readFileSync(join(projectRoot, 'src/extension.js'), 'utf-8');
+    assert.ok(ext.includes('preferCascadeAgentOnActivate'), 'activate 应调用应用逻辑');
+    assert.ok(
+      /KEY_PREFER_CASCADE\)\s*!==\s*false/.test(ext),
+      '仅在未显式关闭时应用，避免覆盖用户的关闭意图'
+    );
+  });
+});
+
 test('日志功能完整性', async (t) => {
   const html = renderHtml();
 

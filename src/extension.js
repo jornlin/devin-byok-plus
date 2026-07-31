@@ -13,6 +13,26 @@ let versionChecker;
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const LEGACY_KEY_AUTO_START_PROXY = 'windsurf-byok-plus.autoStartProxy';
 const LEGACY_KEY_AUTO_START_PROXY_2 = 'devin-byok-plus.autoStartProxy';
+const KEY_PREFER_CASCADE = 'devin-byok-plus.preferCascadeAgent';
+
+/**
+ * 启动时应用「默认使用 Cascade」偏好。
+ * 首次安装（globalState 未记录）视为开启；用户显式关过则不再应用。
+ * 若用户已手动把 preferredAgent 指成别的 agent，则保持不动。
+ */
+async function preferCascadeAgentOnActivate(context) {
+  const { applyCascadePreference, getForeignPreference } = require('./services/preferredAgent');
+  if (getForeignPreference(vscode)) {
+    return;
+  }
+  const result = await applyCascadePreference(vscode, true);
+  if (context.globalState.get(KEY_PREFER_CASCADE) === undefined) {
+    await context.globalState.update(KEY_PREFER_CASCADE, true);
+  }
+  if (result.changed) {
+    console.log('[Devin BYOK Plus] 已将 Devin 默认 Agent 设为 Cascade（避免新会话落到 Devin Local）');
+  }
+}
 
 function activate(context) {
   const extensionPath = context.extensionPath;
@@ -29,6 +49,20 @@ function activate(context) {
   }
   if (context.globalState.get(KEY_AUTO_START_PROXY) === undefined && context.globalState.get(LEGACY_KEY_AUTO_START_PROXY_2) === true) {
     context.globalState.update(KEY_AUTO_START_PROXY, true);
+  }
+
+  // 「默认使用 Cascade」默认开启：Devin 新建会话默认选中 Devin Local，而该模式走 ACP
+  // 协议与独立 CLI，不经过本插件代理，模型列表里没有 BYOK 条目（显示 None selected）。
+  // 仅在用户未手动指定其他 agent、且未主动关闭过本开关时应用，避免覆盖用户选择。
+  if (context.globalState.get(KEY_PREFER_CASCADE) !== false) {
+    preferCascadeAgentOnActivate(context)
+      .then(() => {
+        // 写入后刷新一次，否则侧栏会停在"未生效"的旧状态上
+        sidebar.refresh();
+      })
+      .catch(err => {
+        console.error('[Devin BYOK Plus] 应用默认 Cascade 偏好失败:', err);
+      });
   }
 
   context.subscriptions.push(

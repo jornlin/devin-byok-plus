@@ -360,6 +360,24 @@
     }
     fn20();
   }
+  // 「默认 Cascade」开关：以 Devin 实际配置为准回填，避免"显示开着但没生效"
+  function fn24b(arg0) {
+    if (!arg0) {
+      return;
+    }
+    const tmp12 = fn4("cfgPreferCascadeAgent");
+    if (tmp12 && document.activeElement !== tmp12) {
+      tmp12.checked = arg0.checked === true;
+    }
+    const tmp22 = fn4("preferCascadeHintText");
+    if (tmp22) {
+      tmp22.textContent = arg0.foreign
+        ? "已手动指定为 " + arg0.foreign
+        : arg0.stale
+          ? "未生效，点击重试"
+          : "避免新会话落到 Devin Local";
+    }
+  }
   function fn24a() {
     const tmp12 = fn4("cfgAnthropicPath");
     const tmp22 = fn4("cfgOpenaiPath");
@@ -1090,6 +1108,11 @@
       fn5("setAutoStartProxy", {
         value: tmp12.checked === true
       });
+    } else if (tmp12.id === "cfgPreferCascadeAgent") {
+      // 写的是 Devin 自身的 acp.preferredAgent（非本插件 .env），故走独立消息
+      fn5("setPreferCascadeAgent", {
+        value: tmp12.checked === true
+      });
     } else if (tmp12.id === "cfgModelListMode") {
       // 该控件在「控制状态」Tab，不属于方案编辑器，走独立的立即落盘 + 热更新
       fn5("setModelListMode", {
@@ -1124,6 +1147,7 @@
     if (tmp12.type === "status") {
       fn35(tmp12.proxy);
       fn24(tmp12.config, tmp12.proxy);
+      fn24b(tmp12.preferCascade);
       fn12(tmp12.patch);
     } else if (tmp12.type === "profileList") {
       renderProfileList(tmp12);

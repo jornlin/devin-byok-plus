@@ -82,6 +82,15 @@
         </div>
         <button type="button" class="btn btn-s sm" data-ws-action="newWindow" style="font-size:10px;padding:3px 8px">新窗口</button>
     </div>
+
+    <!-- 默认使用 Cascade -->
+    <div class="row between" style="padding:2px 0">
+        <div class="row">
+            <span style="font-size:11px;color:{{inputFgColor}}" title="Devin 新建会话默认选中「Devin Local」，而该模式走 ACP 协议与独立 CLI，不经过本插件代理，模型列表里没有 BYOK 条目（显示 None selected）。开启后新建会话默认使用 Cascade。修改的是 Devin 自身的 acp.preferredAgent 设置，需重载窗口生效。">默认 Cascade</span>
+            <label class="tog"><input type="checkbox" id="cfgPreferCascadeAgent" {{preferCascadeChecked}}><span></span></label>
+        </div>
+        <span id="preferCascadeHintText" style="font-size:10px;color:{{inputFgColor}};opacity:.7">{{preferCascadeHint}}</span>
+    </div>
 </div>
 
 <!-- 运行状态统计卡 -->

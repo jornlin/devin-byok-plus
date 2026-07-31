@@ -290,6 +290,14 @@ function renderSidebarHtml(ctx) {
     proxyControlButtons: tmp02.running ? '<button type="button" class="btn btn-d" data-ws-action="stopProxy">停止代理</button>' : '<button type="button" class="btn btn-p" data-ws-action="startProxy" data-ws-mode="both">一键启动</button>',
     autoStartChecked: tmp5 ? 'checked' : '',
 
+    // 默认使用 Cascade（避免新会话落到 Devin Local —— 那条链路不经过本插件代理）
+    preferCascadeChecked: ctx.preferCascadeChecked ? 'checked' : '',
+    preferCascadeHint: ctx.preferCascadeForeign
+      ? '已手动指定为 ' + esc(ctx.preferCascadeForeign)
+      : ctx.preferCascadeStale
+        ? '未生效，点击重试'
+        : '避免新会话落到 Devin Local',
+
     // 统计数据
     statPort: tmp02.hybridPort,
     statUptime: tmp02.running ? formatUptime(tmp02.uptime) : '--',
