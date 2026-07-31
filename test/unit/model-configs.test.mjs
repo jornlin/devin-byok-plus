@@ -21,6 +21,8 @@ import {
   modifyGetCascadeModelConfigsResponse,
   prettifyModelName,
   detectModelProviderEnum,
+  buildSlotDescription,
+  formatOutputTokens,
   BYOK_SLOT_ENTRIES
 } from "../../src/proxy/handlers/model-configs.js";
 
@@ -154,6 +156,131 @@ test("上下文窗口改动后 f18 随之变化（不受 maxTokens 影响）", (
   // 非法上下文窗口回落默认值
   setRuntimeConfig({ CONTEXT_WINDOW: "abc" });
   assert.equal(read(), 200000, "非法值应回落 200000");
+});
+
+test("description(f27) 展示输出上限 —— UI 拿不到 max_output_tokens", () => {
+  // Devin 的 edt() 映射里没有输出上限字段（ModelInfo.max_output_tokens 到不了 UI），
+  // 元信息行只显示 `{f18} context`。故用 description 补上，Devin 会渲染成
+  // 模型名下方的独立副标题行。
+  setRuntimeConfig({
+    maxTokens: 32768,
+    CONTEXT_WINDOW: 200000,
+    BYOK1_MODEL: "claude-opus-4-8",
+    BYOK2_MODEL: "",
+    BYOK3_MODEL: "",
+    BYOK4_MODEL: "",
+    BYOK1_THINKING_EFFORT: ""
+  });
+
+  const { bytes } = modifyCascadeModelConfigData(Buffer.alloc(0), "replace");
+  const entry = parseFields(getAllFields(parseFields(bytes), 1)[0].value);
+  const desc = getField(entry, 27, 2);
+
+  assert.ok(desc, "应写入 description(f27)");
+  const text = desc.value.toString("utf8");
+  assert.ok(text.includes("输出上限 32K"), `应含输出上限，实际: ${text}`);
+  // replace 模式 label 是美化名，副标题补上真实 slug 便于确认实际请求的模型
+  assert.ok(text.includes("claude-opus-4-8"), "replace 模式应附带真实模型名");
+});
+
+test("description 随输出上限变化，且不影响既有字段", () => {
+  const read = () => {
+    const { bytes } = modifyCascadeModelConfigData(Buffer.alloc(0), "replace");
+    const e = parseFields(getAllFields(parseFields(bytes), 1)[0].value);
+    return {
+      desc: getField(e, 27, 2)?.value.toString("utf8") ?? "",
+      f18: getField(e, 18, 0)?.value,
+      uid: getField(e, 22, 2)?.value.toString("utf8"),
+      pricing: getField(e, 13, 0)?.value,
+      disabled: getField(e, 4),
+      reason: getField(e, 33)
+    };
+  };
+
+  setRuntimeConfig({
+    CONTEXT_WINDOW: 200000,
+    BYOK1_MODEL: "claude-opus-4-8",
+    BYOK2_MODEL: "",
+    BYOK3_MODEL: "",
+    BYOK4_MODEL: "",
+    BYOK1_THINKING_EFFORT: ""
+  });
+
+  for (const [mt, want] of [
+    [4096, "4K"],
+    [32768, "32K"],
+    [65536, "64K"],
+    [131072, "128K"]
+  ]) {
+    setRuntimeConfig({ maxTokens: mt });
+    const r = read();
+    assert.ok(r.desc.includes("输出上限 " + want), `maxTokens=${mt} 应显示 ${want}，实际: ${r.desc}`);
+    // 既有字段不受影响
+    assert.equal(r.f18, 200000, "f18 仍应是上下文窗口");
+    assert.equal(r.uid, "MODEL_CLAUDE_4_OPUS_BYOK", "model_uid 不变");
+    assert.equal(r.pricing, 3, "pricing_type 仍为 BYOK");
+    assert.equal(r.disabled, undefined, "disabled 仍省略");
+    assert.equal(r.reason, undefined, "disabled_reason 仍省略");
+  }
+});
+
+test("inject 模式副标题不重复模型名（label 已带 BYOKn 后缀）", () => {
+  setRuntimeConfig({
+    maxTokens: 32768,
+    BYOK1_MODEL: "claude-opus-4-8",
+    BYOK2_MODEL: "",
+    BYOK3_MODEL: "",
+    BYOK4_MODEL: "",
+    BYOK1_THINKING_EFFORT: ""
+  });
+  const desc = buildSlotDescription(1, "claude-opus-4-8", 32768, "inject");
+  assert.equal(desc, "输出上限 32K", "inject 模式只显示输出上限，避免副标题过长");
+  const descReplace = buildSlotDescription(1, "claude-opus-4-8", 32768, "replace");
+  assert.ok(descReplace.includes("claude-opus-4-8"), "replace 模式应补上真实模型名");
+});
+
+test("description 为空时不写该字段（避免渲染空白行）", () => {
+  const bytes = buildClientModelConfig({
+    enumNo: 277,
+    uid: "X",
+    label: "L",
+    contextWindow: 200000,
+    description: ""
+  });
+  assert.equal(getField(parseFields(bytes), 27), undefined, "空串不应写入 f27");
+
+  const noArg = buildClientModelConfig({
+    enumNo: 277,
+    uid: "X",
+    label: "L",
+    contextWindow: 200000
+  });
+  assert.equal(getField(parseFields(noArg), 27), undefined, "未传时不应写入 f27");
+});
+
+test("formatOutputTokens 与扩展侧 formatTokens 口径一致", async () => {
+  // proxy 侧是 ESM 且不依赖扩展侧模块，复制了一份实现；两边漂移会导致显示不一致
+  const ext = await import("../../src/services/maxTokens.js");
+  const extFmt = (ext.default || ext).formatTokens;
+  for (const v of [4096, 32768, 65536, 131072, 100000, 800000, 1048576, 999, 0, -1]) {
+    assert.equal(
+      formatOutputTokens(v),
+      extFmt(v),
+      `${v} 的格式化结果应与 maxTokens.js 一致`
+    );
+  }
+});
+
+test("中文与分隔符在 UTF-8 下正确往返", () => {
+  const text = "输出上限 32K · claude-opus-4-8";
+  const bytes = buildClientModelConfig({
+    enumNo: 277,
+    uid: "X",
+    label: "L",
+    contextWindow: 200000,
+    description: text
+  });
+  assert.equal(getField(parseFields(bytes), 27, 2).value.toString("utf8"), text);
 });
 
 test("buildClientModelConfig 不写 disabled 与 disabled_reason", () => {

@@ -34,7 +34,13 @@ import {
   writeMessageField,
   replaceFields
 } from "../proto.js";
-import { getModelListMode, getContextWindow, getSlotModel, getSlotThinkingEffort } from "./models.js";
+import {
+  getModelListMode,
+  getContextWindow,
+  getRuntimeConfig,
+  getSlotModel,
+  getSlotThinkingEffort
+} from "./models.js";
 
 /** ClientModelConfig 字段号 */
 const CFG_LABEL = 1;
@@ -51,6 +57,13 @@ const CFG_PRICING_TYPE = 13;
  */
 const CFG_CONTEXT_WINDOW = 18;
 const CFG_MODEL_UID = 22;
+/**
+ * description(f27)：Devin 把它渲染成模型名下方的独立副标题行
+ *   <span class="text-xs font-normal opacity-60">{u.description}</span>
+ * 输出上限（ModelInfo.max_output_tokens/f13）不在 edt() 的映射里，UI 层拿不到，
+ * 因此用这里展示「输出上限」，比塞进 label 干净（label 还要参与 sorts 查表）。
+ */
+const CFG_DESCRIPTION = 27;
 
 /** ModelProvider 枚举（决定下拉框里的厂商图标） */
 const MODEL_PROVIDER = {
@@ -312,7 +325,68 @@ export function buildClientModelConfig(arg0) {
   if (arg0.provider) {
     tmp1.splice(3, 0, writeVarintField(CFG_PROVIDER, arg0.provider));
   }
+  // description 是可选字段，空串会渲染成一行空白，故仅在有内容时写入
+  if (arg0.description) {
+    tmp1.push(writeStringField(CFG_DESCRIPTION, arg0.description));
+  }
   return Buffer.concat(tmp1);
+}
+
+/**
+ * 生成条目副标题：展示输出上限与实际模型名。
+ * Devin 的模型元信息行只会显示 `{f18} context`（上下文窗口），拿不到输出上限，
+ * 所以在这里补上，让用户在选择模型时就能看到单次输出能有多长。
+ * @param {number} slot
+ * @param {string} model - 用户配置的真实模型名
+ * @param {number} maxTokens - 单次输出上限
+ * @param {string} [mode] - inject | replace
+ * @returns {string}
+ */
+export function buildSlotDescription(slot, model, maxTokens, mode) {
+  const tmp0 = [];
+  const tmp1 = formatOutputTokens(maxTokens);
+  if (tmp1) {
+    tmp0.push("输出上限 " + tmp1);
+  }
+  // replace 模式下 label 已是干净的显示名，补上原始 slug 便于确认实际请求的模型；
+  // inject 模式 label 带 (BYOKn) 后缀已足够区分，再重复 slug 会过长
+  const tmp2 = String(model || "").trim();
+  if (mode === "replace" && tmp2) {
+    tmp0.push(tmp2);
+  }
+  return tmp0.join(" · ");
+}
+
+/**
+ * 输出上限的紧凑显示（2 的幂用 1024 制，十进制整数用 1000 制）。
+ * 与 src/services/maxTokens.js 的 formatTokens 保持一致 —— proxy 侧是 ESM
+ * 且不依赖扩展侧模块，故复制一份最小实现。
+ * @param {*} value
+ * @returns {string}
+ */
+export function formatOutputTokens(value) {
+  const tmp0 = typeof value === "number" ? value : Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isInteger(tmp0) || tmp0 <= 0) {
+    return "";
+  }
+  const fn = (arg0, arg1, arg2) => {
+    const tmp1 = tmp0 / arg0;
+    if (Number.isInteger(tmp1)) {
+      return String(tmp1) + arg1;
+    }
+    const tmp2 = tmp0 / arg2;
+    if (Number.isInteger(tmp2)) {
+      return String(tmp2) + arg1;
+    }
+    return tmp1.toFixed(1).replace(/\.0$/, "") + arg1;
+  };
+  if (tmp0 >= 1000000) {
+    return fn(1048576, "M", 1000000);
+  }
+  if (tmp0 >= 1000) {
+    return fn(1024, "K", 1000);
+  }
+  return String(tmp0);
 }
 
 /**
@@ -340,7 +414,8 @@ export function collectConfiguredSlots(mode) {
       enumNo: tmp1.enumNo,
       uid: tmp1.uid,
       label: tmp4,
-      provider: detectModelProviderEnum(tmp2)
+      provider: detectModelProviderEnum(tmp2),
+      description: buildSlotDescription(tmp1.slot, tmp2, getRuntimeConfig().maxTokens, mode)
     });
   }
   return tmp0;
@@ -360,6 +435,7 @@ function buildByokConfigBlobs(arg0) {
       uid: arg02.uid,
       label: arg02.label,
       provider: arg02.provider,
+      description: arg02.description,
       contextWindow: tmp1
     })
   );

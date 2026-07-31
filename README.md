@@ -260,6 +260,18 @@ max_tokens，但 Devin 的语义是**上下文窗口**——真正的输出上�
 两个值都会显示在方案列表每一项上，用符号区分：`↑32K`（输出上限）、
 `⊞200K`（上下文窗口）。
 
+在 Devin 的模型下拉框里，两个值也都可见：
+
+```
+Claude Opus 4.8                    ← label
+输出上限 32K · claude-opus-4-8      ← description(f27)，副标题行
+BYOK · 200K context                ← 元信息行，context 来自 f18
+```
+
+上下文由 Devin 原生渲染（`{f18} context`），而输出上限**没有**对应的原生展示字段
+（`ModelInfo.max_output_tokens` 不在 UI 的字段映射里），故写入 `description`
+让它作为副标题显示。替换模式下副标题还会附上真实模型名，便于确认实际请求的模型。
+
 ### 模型列表接管（`MODEL_LIST_MODE`）
 
 Devin 的模型下拉列表由服务端下发。自某次更新起，服务端不再下发
