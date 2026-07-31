@@ -206,12 +206,22 @@ class SidebarProvider {
       versionUpdate: this.versionChecker.getUpdateInfo(),
     });
   }
+  /**
+   * 把方案投影成 webview 配置，但保留全局项的实际生效值。
+   * 模型列表模式的开关在「控制状态」Tab（常驻可见），不属于方案编辑器；
+   * 编辑非激活方案时若用该方案的值覆盖，开关显示会与实际生效值不符。
+   */
+  profileScopedConfigForView(profile, envConfig = this.proxyManager.readEnvConfig()) {
+    const scoped = this.getModeScopedConfig(profileStore_1.projectToEnvConfig(profile));
+    scoped.MODEL_LIST_MODE = profileStore_1.sanitizeModelListMode(envConfig.MODEL_LIST_MODE);
+    return scoped;
+  }
   getEditingScopedConfig() {
     const envConfig = this.proxyManager.readEnvConfig();
     if (this.editingProfileId) {
       const profile = profileStore_1.getProfileById(this.editingProfileId, envConfig);
       if (profile) {
-        return this.getModeScopedConfig(profileStore_1.projectToEnvConfig(profile));
+        return this.profileScopedConfigForView(profile, envConfig);
       }
     }
     return this.getModeScopedConfig(envConfig);
@@ -235,7 +245,7 @@ class SidebarProvider {
     const envConfig = this.proxyManager.readEnvConfig();
     const profile = profileStore_1.getProfileById(this.editingProfileId, envConfig);
     if (!profile) return;
-    const scoped = this.getModeScopedConfig(profileStore_1.projectToEnvConfig(profile));
+    const scoped = this.profileScopedConfigForView(profile, envConfig);
     this.view.webview.postMessage({
       type: 'status',
       proxy: this.proxyManager.getStatus(),
@@ -361,6 +371,7 @@ class SidebarProvider {
         openaiPath: norm.OPENAI_API_PATH || '/v1/responses',
         maxTokens: norm.MAX_TOKENS || '64000',
         completionTimeout: norm.COMPLETION_TIMEOUT_MS || '12000',
+        modelListMode: profileStore_1.sanitizeModelListMode(norm.MODEL_LIST_MODE),
       },
     };
   }
@@ -920,6 +931,10 @@ class SidebarProvider {
     }
     if (!['true', 'false'].includes(tmp2.OPENAI_THINKING_ENABLED || 'false')) {
       tmp2.OPENAI_THINKING_ENABLED = 'false';
+    }
+    // 模型列表接管模式白名单清洗，非法值回落到默认的 inject
+    if (!['inject', 'replace', 'off'].includes(String(tmp2.MODEL_LIST_MODE || '').toLowerCase())) {
+      tmp2.MODEL_LIST_MODE = 'inject';
     }
     if (!sidebarUtils_1.isValidCompletionTimeoutValue(tmp2.COMPLETION_TIMEOUT_MS)) {
       tmp2.COMPLETION_TIMEOUT_MS = '12000';
@@ -1484,7 +1499,7 @@ class SidebarProvider {
         this.postActionState('config', 'success', '已创建新方案：' + created.name);
         this.postProfileList();
         // 新建后自动打开编辑器
-        const scoped = this.getModeScopedConfig(profileStore_1.projectToEnvConfig(created));
+        const scoped = this.profileScopedConfigForView(created, envConfig);
         if (this.view) {
           this.view.webview.postMessage({
             type: 'openProfileEditor',
@@ -1506,7 +1521,7 @@ class SidebarProvider {
           break;
         }
         this.editingProfileId = pid;
-        const scoped = this.getModeScopedConfig(profileStore_1.projectToEnvConfig(profile));
+        const scoped = this.profileScopedConfigForView(profile, envConfig);
         if (this.view) {
           const activeId = profileStore_1.listProfiles(envConfig).activeId;
           this.view.webview.postMessage({
@@ -1536,7 +1551,7 @@ class SidebarProvider {
           this.postActionState('config', 'error', '方案不存在');
           break;
         }
-        const scoped = this.getModeScopedConfig(profileStore_1.projectToEnvConfig(profile));
+        const scoped = this.profileScopedConfigForView(profile, envConfig);
         if (this.view) {
           const activeId = profileStore_1.listProfiles(envConfig).activeId;
           this.view.webview.postMessage({
@@ -1680,6 +1695,64 @@ class SidebarProvider {
       }
       case 'setAutoStartProxy': {
         await this.context.globalState.update(KEY_AUTO_START_PROXY, tmp02.value === true);
+        break;
+      }
+      case 'setModelListMode': {
+        // 模型列表模式是全局代理行为（非方案级配置），落盘后热更新到运行中的代理，
+        // 无需重启；Devin 侧需要重新拉取 GetUserStatus 才能看到新清单
+        try {
+          const mode = profileStore_1.sanitizeModelListMode(tmp02.value);
+          const envConfig = this.proxyManager.readEnvConfig();
+          if (String(envConfig.MODEL_LIST_MODE || 'inject') === mode) {
+            break;
+          }
+          envConfig.MODEL_LIST_MODE = mode;
+          this.proxyManager.writeEnvConfig(envConfig);
+
+          // 同步写回当前方案，避免下次切换方案时被旧值覆盖
+          const list = profileStore_1.listProfiles(envConfig);
+          if (list.activeId) {
+            const active = profileStore_1.getProfileById(list.activeId, envConfig);
+            if (active) {
+              profileStore_1.updateProfile(
+                list.activeId,
+                {
+                  advanced: {
+                    ...active.advanced,
+                    modelListMode: mode,
+                  },
+                },
+                envConfig
+              );
+            }
+          }
+
+          const label =
+            mode === 'replace' ? '替换（只显示 BYOK 槽位）'
+            : mode === 'off' ? '关闭（不接管清单）'
+            : '注入（官方模型 + BYOK 槽位）';
+          const status = this.proxyManager.getStatus();
+          if (status.running) {
+            const result = await this.proxyManager.reloadRuntimeConfig(envConfig);
+            this.postActionState(
+              'proxy',
+              result.errors.length > 0 ? 'error' : 'success',
+              result.errors.length > 0
+                ? '模型列表模式已保存为「' + label + '」，但热更新失败：' + result.errors.join('；')
+                : '模型列表模式已切换为「' + label + '」。在 Devin 中重新打开模型下拉框即可看到变化。'
+            );
+          } else {
+            this.postActionState(
+              'proxy',
+              'success',
+              '模型列表模式已保存为「' + label + '」，启动代理后生效。'
+            );
+          }
+          this.refresh();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.postActionState('proxy', 'error', '切换模型列表模式失败：' + msg);
+        }
         break;
       }
       case 'maintenanceTools': {

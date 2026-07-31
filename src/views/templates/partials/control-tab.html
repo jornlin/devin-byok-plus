@@ -60,6 +60,14 @@
         </div>
     </div>
 
+    <!-- 模型列表接管模式 -->
+    <div style="margin-bottom:10px">
+        <div class="fg" style="margin-bottom:0">
+            <label title="控制 Devin 模型下拉列表的接管方式。注入=保留官方模型并追加 BYOK 槽位（Pro 账号可继续使用官方额度）；替换=只显示 BYOK 槽位并展示干净的模型名；关闭=不接管上游清单">模型列表模式 <span class="hint">（切换后需重启代理）</span></label>
+            <select id="cfgModelListMode" title="注入：保留官方模型并追加 BYOK 槽位；替换：只显示 BYOK 槽位（干净模型名）；关闭：不接管模型列表">{{modelListModeOptions}}</select>
+        </div>
+    </div>
+
     <!-- 控制按钮 -->
     <div class="btns" style="margin-bottom:10px" id="proxyControlButtons">
         {{proxyControlButtons}}

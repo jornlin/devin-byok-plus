@@ -348,6 +348,7 @@
       fn13("cfgAnthropicPath", arg0.BYOK1_ANTHROPIC_API_PATH || arg0.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", arg0.BYOK1_OPENAI_API_PATH || arg0.OPENAI_API_PATH || "");
       fn13("cfgMaxTokens", arg0.MAX_TOKENS || "64000");
+      fn13("cfgModelListMode", ["inject", "replace", "off"].includes(String(arg0.MODEL_LIST_MODE || "").toLowerCase()) ? String(arg0.MODEL_LIST_MODE).toLowerCase() : "inject");
       fn13("cfgSysPromptOverride", arg0.SYSTEM_PROMPT_OVERRIDE === "true" ? "true" : "");
       fn13("cfgSysPromptPath", arg0.SYSTEM_PROMPT_PATH || "");
       fn3();
@@ -608,6 +609,7 @@
       DEFAULT_MODEL: tmp02.BYOK1_MODEL,
       MAX_TOKENS: (fn4("cfgMaxTokens") || {}).value || "64000",
       COMPLETION_TIMEOUT_MS: (fn4("cfgCompletionTimeoutMs") || {}).value || "12000",
+      MODEL_LIST_MODE: (fn4("cfgModelListMode") || {}).value || "inject",
       HYBRID_PORT: (fn4("cfgHybridPort") || {}).value || "3006",
       INFERENCE_PORT: (fn4("cfgInferencePort") || {}).value || "3001",
       SYSTEM_PROMPT_OVERRIDE: (fn4("cfgSysPromptOverride") || {}).value || "",
@@ -1087,6 +1089,11 @@
     if (tmp12.id === "cfgAutoStartProxy") {
       fn5("setAutoStartProxy", {
         value: tmp12.checked === true
+      });
+    } else if (tmp12.id === "cfgModelListMode") {
+      // 该控件在「控制状态」Tab，不属于方案编辑器，走独立的立即落盘 + 热更新
+      fn5("setModelListMode", {
+        value: tmp12.value || "inject"
       });
     } else if (tmp12.id === "cfgByok1Model" || tmp12.id === "cfgByok2Model" || tmp12.id === "cfgByok3Model" || tmp12.id === "cfgByok4Model" || tmp12.id === "cfgByok1ThinkingEffort" || tmp12.id === "cfgByok2ThinkingEffort" || tmp12.id === "cfgByok3ThinkingEffort" || tmp12.id === "cfgByok4ThinkingEffort" || tmp12.id === "cfgByok1Protocol" || tmp12.id === "cfgByok2Protocol" || tmp12.id === "cfgByok3Protocol" || tmp12.id === "cfgByok4Protocol" || tmp12.id === "cfgByok1ServiceTier" || tmp12.id === "cfgByok2ServiceTier" || tmp12.id === "cfgByok3ServiceTier" || tmp12.id === "cfgByok4ServiceTier" || tmp12.id === "cfgByok1ReasoningMode" || tmp12.id === "cfgByok2ReasoningMode" || tmp12.id === "cfgByok3ReasoningMode" || tmp12.id === "cfgByok4ReasoningMode") {
       const tmp02 = /cfgByok2/.test(tmp12.id) ? 2 : /cfgByok3/.test(tmp12.id) ? 3 : /cfgByok4/.test(tmp12.id) ? 4 : 1;

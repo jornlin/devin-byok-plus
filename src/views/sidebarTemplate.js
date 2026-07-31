@@ -28,6 +28,21 @@ function renderSidebarHtml(ctx) {
   const byok3Configured = !!(tmp33a || tmp33b);
   const byok4Configured = !!(tmp33e || tmp33f);
 
+  // 模型列表接管模式 select 选项（回填当前值，默认 inject）
+  const buildModelListModeOptions = (selected) => {
+    const current = ['inject', 'replace', 'off'].includes(String(selected || '').toLowerCase())
+      ? String(selected).toLowerCase()
+      : 'inject';
+    const opts = [
+      ['inject', '注入 · 官方模型 + BYOK 槽位'],
+      ['replace', '替换 · 只显示 BYOK 槽位'],
+      ['off', '关闭 · 不接管模型列表'],
+    ];
+    return opts
+      .map(([v, label]) => `<option value="${v}"${current === v ? ' selected' : ''}>${esc(label)}</option>`)
+      .join('');
+  };
+
   // 协议 select 选项渲染（回填手动选择的值）
   const buildProtocolOptions = (selected) => {
     const opts = [
@@ -138,6 +153,9 @@ function renderSidebarHtml(ctx) {
     // 隐藏配置字段
     sysPromptOverride: tmp9 ? 'true' : '',
     sysPromptPath: esc(tmp8),
+
+    // 模型列表接管模式
+    modelListModeOptions: buildModelListModeOptions(tmp2 && tmp2.MODEL_LIST_MODE),
 
     // 有效 provider：手动协议优先，否则按模型名自动识别
     // 值：'claude' / 'gpt' / 'gemini' / null

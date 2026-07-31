@@ -216,6 +216,81 @@ test('高级路由配置可见性', async (t) => {
   });
 });
 
+test('模型列表模式开关可见性', async (t) => {
+  const html = renderHtml();
+  const controlTab = readFileSync(
+    join(projectRoot, 'src/views/templates/partials/control-tab.html'),
+    'utf-8'
+  );
+  const configTab = readFileSync(
+    join(projectRoot, 'src/views/templates/partials/config-tab.html'),
+    'utf-8'
+  );
+
+  await t.test('必须在「控制状态」Tab 的代理控制卡片内', () => {
+    // 放进方案编辑器会被三层折叠容器藏住（方案卡默认 hidden + 高级路由默认 collapsed），
+    // 用户根本找不到；这里锁死它的位置
+    assert.ok(
+      controlTab.includes('cfgModelListMode'),
+      '模型列表模式开关必须在 control-tab（常驻可见）'
+    );
+    assert.ok(
+      !configTab.includes('cfgModelListMode'),
+      '不应留在 config-tab 的折叠区域内'
+    );
+  });
+
+  await t.test('不能被 hidden / collapsed 容器包裹', () => {
+    const idx = controlTab.indexOf('cfgModelListMode');
+    const before = controlTab.slice(0, idx);
+    // 该控件之前最近的一个 div 不应带 hidden 类
+    const lastDiv = before.lastIndexOf('<div');
+    const enclosing = before.slice(lastDiv);
+    assert.ok(
+      !/class="[^"]*\bhidden\b/.test(enclosing),
+      '所在容器不应带 hidden 类，否则默认不可见'
+    );
+  });
+
+  await t.test('select 含三档且默认选中 inject', () => {
+    const match = html.match(/<select id="cfgModelListMode"[^>]*>([\s\S]*?)<\/select>/);
+    assert.ok(match, '应该渲染出 cfgModelListMode 的 select');
+    const options = match[1];
+    for (const value of ['inject', 'replace', 'off']) {
+      assert.ok(options.includes(`value="${value}"`), `应该有 ${value} 选项`);
+    }
+    assert.ok(
+      /value="inject" selected/.test(options),
+      '未配置时应默认选中 inject（保留官方模型）'
+    );
+  });
+
+  await t.test('切换时走独立的立即落盘消息', () => {
+    const sidebarJs = readFileSync(
+      join(projectRoot, 'resources/webviews/sidebar.js'),
+      'utf-8'
+    );
+    // 该控件不在方案编辑器内，自动保存（依赖 currentEditingProfile）不会触发，
+    // 必须有专用的 setModelListMode 消息，否则选了没反应
+    assert.ok(
+      sidebarJs.includes('cfgModelListMode'),
+      'sidebar.js 应监听 cfgModelListMode 的 change'
+    );
+    assert.ok(
+      sidebarJs.includes('setModelListMode'),
+      '应发送 setModelListMode 消息以立即落盘'
+    );
+    const provider = readFileSync(
+      join(projectRoot, 'src/providers/sidebarProvider.js'),
+      'utf-8'
+    );
+    assert.ok(
+      provider.includes("case 'setModelListMode'"),
+      'sidebarProvider 应处理 setModelListMode'
+    );
+  });
+});
+
 test('日志功能完整性', async (t) => {
   const html = renderHtml();
 
