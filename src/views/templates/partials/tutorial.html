@@ -6,21 +6,41 @@
     </div>
     <div id="tutorialBody" class="guide-body hidden">
         <div class="guide-block">
-            <b>快速使用</b>
+            <b>快速开始</b>
             <ol>
-                <li><b>第一步：配置连接</b> - 在「⚙️ 配置连接」页为 BYOK #1 至 #4（任选）填写 Base URL、API Key，加载模型并选择模型；可选手动设置 Protocol 下拉（anthropic / openai / gemini）；Claude/GPT 可设置思考强度；OpenAI 可开启 GPT Fast Mode。</li>
-                <li><b>第二步：安装补丁</b> - 切换到「🔧 系统补丁」页，点击「安装补丁」将配置注入 Devin Desktop。</li>
-                <li><b>第三步：启动代理</b> - 切换到「🚀 控制状态」页，点击「一键启动」，补丁就绪后重载窗口；Devin Desktop 里分别使用 <code>Claude Opus 4 BYOK</code>、<code>Claude Opus 4 Thinking BYOK</code>、<code>Claude Sonnet 4 BYOK</code>、<code>Claude Sonnet 4 Thinking BYOK</code>。</li>
+                <li><b>第一步：配置连接</b> - 在「⚙️ 配置连接」页点方案列表里的方案（或「＋ 新建」）打开编辑器，为 BYOK #1 填写 Base URL 与 API Key，点「加载模型」并选择模型；也可点「导入 Claude 配置」/「导入 GPT 配置」直接读取本地 <code>~/.claude</code>、<code>~/.codex</code> 的现有配置。BYOK #2 至 #4 为可选槽位，可指向不同厂商。</li>
+                <li><b>第二步：安装补丁</b> - 切换到「🔧 系统补丁」页，点「安装补丁」把代理地址注入 Devin Desktop，完成后<b>重载窗口</b>。</li>
+                <li><b>第三步：启动代理</b> - 切换到「🚀 控制状态」页，点「一键启动」。三步的完成状态见该页顶部的流程指示器。</li>
+                <li><b>第四步：在 Devin 里选模型</b> - 打开模型下拉框，选择你配置的模型（默认「替换」模式下显示的是真实模型名，如 <code>Claude Opus 4.8</code>）。</li>
             </ol>
         </div>
         <div class="guide-block">
-            <b>日常使用</b>
+            <b>配置方案</b>
             <ul>
-                <li>只换 API Key 或模型：修改后会自动保存。</li>
-                <li>聊天没有走代理：重新安装补丁并重载窗口。</li>
-                <li>模型列表加载失败：检查 API Key、余额、网络和日志错误。</li>
+                <li>一整套配置（4 个槽位 + 高级路由 + 提示词）存为一个方案，可建多个方案随时切换。</li>
+                <li>编辑器打开时，改动会<b>自动保存</b>（约 650ms 防抖）；点「💾 应用到方案」可立即写入。</li>
+                <li>方案列表里点「启 用」切换当前生效的方案；标「未配齐」表示 BYOK #1/#2 还缺 Key 或模型。</li>
+                <li>列表上的 <code>↑</code> 是单次输出上限，<code>⊞</code> 是 Devin 显示的上下文额度。</li>
             </ul>
         </div>
-        <div class="guide-note">BYOK #1 对应 Devin Desktop 的 <code>Claude Opus 4 BYOK</code>；BYOK #2 对应 <code>Claude Opus 4 Thinking BYOK</code>；BYOK #3 对应 <code>Claude Sonnet 4 BYOK</code>；BYOK #4 对应 <code>Claude Sonnet 4 Thinking BYOK</code>。四套 API / 模型完全独立，BYOK #3/#4 为可选扩展槽位。</div>
+        <div class="guide-block">
+            <b>让 BYOK 模型出现在下拉框</b>
+            <ul>
+                <li>Devin 服务端已不再下发 BYOK 条目，代理会改写模型清单把槽位放回去。在「🚀 控制状态 → 模型接管」调整，<b>即时生效</b>，重新打开 Devin 的模型下拉框即可。</li>
+                <li><b>替换</b>（默认）只显示 BYOK 槽位并展示干净的模型名；<b>注入</b>保留官方模型并追加 BYOK 槽位（Pro 账号可继续用官方额度）；<b>关闭</b>不接管。</li>
+                <li><b>默认使用 Cascade</b>（默认开启）：新建会话默认选中的「Devin Local」走独立 CLI，不经过本插件，模型列表里没有 BYOK 条目。该开关改的是 Devin 自身设置，需重载窗口生效。</li>
+            </ul>
+        </div>
+        <div class="guide-block">
+            <b>常见问题</b>
+            <ul>
+                <li><b>下拉框里没有配好的模型</b>：确认代理已启动、补丁已安装且重载过窗口；再检查「模型列表模式」不是「关闭」。</li>
+                <li><b>生成中途截断、工具参数 JSON 不完整</b>：大概率是「高级路由配置 → 最大 Token」超过了模型经网关的实际输出上限，调回 32K 试试。它是单次输出上限，与「上下文窗口」是两件事（后者仅影响 Devin 界面显示）。</li>
+                <li><b>聊天没有走代理</b>：重新安装补丁并重载窗口。Devin 升级会覆盖补丁，属预期行为。</li>
+                <li><b>模型列表加载失败</b>：检查 Base URL、API Key、余额与网络，并看「控制状态 → 代理日志」的报错。</li>
+                <li><b>GPT 报 <code>/v1/responses</code> 相关错误</b>：在「高级路由配置」把 OpenAI API 路径改为 <code>/v1/chat/completions</code>。</li>
+            </ul>
+        </div>
+        <div class="guide-note">每个槽位可独立设置网关、Key、模型、API 协议（自动 / anthropic / openai / gemini）与思考强度；思考强度选项会按厂商自动变化（Claude adaptive、GPT <code>reasoning.effort</code>、Gemini <code>thinking_level</code>），GPT 另有 Processing Tier，<code>gpt-5.6*</code> 还可设推理模式。</div>
     </div>
 </div>

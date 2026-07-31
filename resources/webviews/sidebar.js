@@ -263,7 +263,7 @@
     if (tmp6) {
       tmp6.textContent = fn16(tmp7);
     }
-    // GPT Fast Mode 行：只在 provider=gpt 时显示
+    // GPT Processing Tier 行：只在 provider=gpt 时显示
     const tmpST = fn4("cfgByok" + tmp32 + "ServiceTierRow");
     if (tmpST) {
       tmpST.classList.toggle("hidden", tmp7 !== "gpt");

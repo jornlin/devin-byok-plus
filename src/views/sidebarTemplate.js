@@ -82,7 +82,7 @@ function renderSidebarHtml(ctx) {
     }).join('');
   };
 
-  // GPT Fast Mode (service_tier) 下拉选项：接受 fast / priority 或空
+  // GPT Processing Tier (service_tier) 下拉选项：接受 fast / priority 或空
   const buildOpenAIServiceTierOptions = (selected) => {
     const norm = String(selected || '').trim().toLowerCase();
     const cur = ['fast', 'priority'].includes(norm) ? norm : '';
