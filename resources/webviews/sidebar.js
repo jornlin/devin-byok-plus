@@ -348,7 +348,7 @@
       fn13("cfgAnthropicPath", arg0.BYOK1_ANTHROPIC_API_PATH || arg0.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", arg0.BYOK1_OPENAI_API_PATH || arg0.OPENAI_API_PATH || "");
       fn13("cfgMaxTokens", arg0.MAX_TOKENS || "64000");
-      fn13("cfgModelListMode", ["inject", "replace", "off"].includes(String(arg0.MODEL_LIST_MODE || "").toLowerCase()) ? String(arg0.MODEL_LIST_MODE).toLowerCase() : "inject");
+      fn13("cfgModelListMode", ["inject", "replace", "off"].includes(String(arg0.MODEL_LIST_MODE || "").toLowerCase()) ? String(arg0.MODEL_LIST_MODE).toLowerCase() : "replace");
       fn13("cfgSysPromptOverride", arg0.SYSTEM_PROMPT_OVERRIDE === "true" ? "true" : "");
       fn13("cfgSysPromptPath", arg0.SYSTEM_PROMPT_PATH || "");
       fn3();
@@ -358,7 +358,21 @@
       fn13("cfgInferencePort", arg1.inferencePort || "3001");
       fn8(fn4("proxyRunBadge"), !!arg1.running, arg1.running ? "运行中" : "已停止");
     }
+    fn24c();
     fn20();
+  }
+  // 端口折叠区收起时，在标题右侧显示当前端口摘要，避免展开才能看到
+  function fn24c() {
+    const tmp12 = fn4("proxyPortsSummary");
+    if (!tmp12) {
+      return;
+    }
+    const tmp22 = (fn4("cfgHybridPort") || {}).value || "3006";
+    const tmp32 = (fn4("cfgInferencePort") || {}).value || "3001";
+    const tmp42 = tmp22 + " / " + tmp32;
+    if (tmp12.textContent !== tmp42) {
+      tmp12.textContent = tmp42;
+    }
   }
   // 「默认 Cascade」开关：以 Devin 实际配置为准回填，避免"显示开着但没生效"
   function fn24b(arg0) {
@@ -627,7 +641,7 @@
       DEFAULT_MODEL: tmp02.BYOK1_MODEL,
       MAX_TOKENS: (fn4("cfgMaxTokens") || {}).value || "64000",
       COMPLETION_TIMEOUT_MS: (fn4("cfgCompletionTimeoutMs") || {}).value || "12000",
-      MODEL_LIST_MODE: (fn4("cfgModelListMode") || {}).value || "inject",
+      MODEL_LIST_MODE: (fn4("cfgModelListMode") || {}).value || "replace",
       HYBRID_PORT: (fn4("cfgHybridPort") || {}).value || "3006",
       INFERENCE_PORT: (fn4("cfgInferencePort") || {}).value || "3001",
       SYSTEM_PROMPT_OVERRIDE: (fn4("cfgSysPromptOverride") || {}).value || "",
@@ -815,7 +829,11 @@
       tmp32.textContent = String(arg0.requestCount || 0);
     }
     if (tmp4) {
-      const tmp02 = (arg0.running ? "<button type=\"button\" class=\"btn btn-d\" data-ws-action=\"stopProxy\">停止代理</button>" : "<button type=\"button\" class=\"btn btn-p\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>") + "<button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"saveConfig\">仅保存配置</button><button type=\"button\" class=\"btn btn-s sm\" data-ws-action=\"maintenanceTools\">维护工具</button>";
+      // 只渲染主操作按钮：次级操作（维护工具 / 新窗口）在模板里是静态的，
+      // 若在此一并注入会与模板重复出现两份
+      const tmp02 = arg0.running
+        ? "<button type=\"button\" class=\"btn btn-d btn-block\" data-ws-action=\"stopProxy\">停止代理</button>"
+        : "<button type=\"button\" class=\"btn btn-p btn-block\" data-ws-action=\"startProxy\" data-ws-mode=\"both\">一键启动</button>";
       if (tmp4.innerHTML !== tmp02) {
         tmp4.innerHTML = tmp02;
       }
@@ -1116,7 +1134,7 @@
     } else if (tmp12.id === "cfgModelListMode") {
       // 该控件在「控制状态」Tab，不属于方案编辑器，走独立的立即落盘 + 热更新
       fn5("setModelListMode", {
-        value: tmp12.value || "inject"
+        value: tmp12.value || "replace"
       });
     } else if (tmp12.id === "cfgByok1Model" || tmp12.id === "cfgByok2Model" || tmp12.id === "cfgByok3Model" || tmp12.id === "cfgByok4Model" || tmp12.id === "cfgByok1ThinkingEffort" || tmp12.id === "cfgByok2ThinkingEffort" || tmp12.id === "cfgByok3ThinkingEffort" || tmp12.id === "cfgByok4ThinkingEffort" || tmp12.id === "cfgByok1Protocol" || tmp12.id === "cfgByok2Protocol" || tmp12.id === "cfgByok3Protocol" || tmp12.id === "cfgByok4Protocol" || tmp12.id === "cfgByok1ServiceTier" || tmp12.id === "cfgByok2ServiceTier" || tmp12.id === "cfgByok3ServiceTier" || tmp12.id === "cfgByok4ServiceTier" || tmp12.id === "cfgByok1ReasoningMode" || tmp12.id === "cfgByok2ReasoningMode" || tmp12.id === "cfgByok3ReasoningMode" || tmp12.id === "cfgByok4ReasoningMode") {
       const tmp02 = /cfgByok2/.test(tmp12.id) ? 2 : /cfgByok3/.test(tmp12.id) ? 3 : /cfgByok4/.test(tmp12.id) ? 4 : 1;
@@ -1140,6 +1158,9 @@
     const tmp12 = arg0.target;
     if (tmp12 && (tmp12.id === "cfgDefaultModelCustom" || /cfgByok[1234]Model/.test(tmp12.id))) {
       fn20();
+    }
+    if (tmp12 && (tmp12.id === "cfgHybridPort" || tmp12.id === "cfgInferencePort")) {
+      fn24c();
     }
   });
   window.addEventListener("message", arg0 => {

@@ -103,7 +103,7 @@ function getCompletionTimeoutMs(config) {
  */
 function getModelListMode(config) {
   const raw = String(config?.MODEL_LIST_MODE || '').trim().toLowerCase();
-  return ['inject', 'replace', 'off'].includes(raw) ? raw : 'inject';
+  return ['inject', 'replace', 'off'].includes(raw) ? raw : 'replace';
 }
 
 /**

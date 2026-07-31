@@ -222,7 +222,7 @@ HYBRID_PORT=3006
 INFERENCE_PORT=3001
 MAX_TOKENS=64000
 COMPLETION_TIMEOUT_MS=12000
-MODEL_LIST_MODE=inject        # 模型列表接管：inject / replace / off
+MODEL_LIST_MODE=replace       # 模型列表接管：replace / inject / off
 SYSTEM_PROMPT_OVERRIDE=
 SYSTEM_PROMPT_PATH=
 PROXY_DEVICE_ID=              # 由扩展注入子进程
@@ -238,11 +238,11 @@ Devin 的模型下拉列表由服务端下发。自某次更新起，服务端�
 
 | 值 | 行为 | 适用 |
 | --- | --- | --- |
-| `inject`（默认） | 保留官方模型，追加 BYOK 槽位 | Pro 账号，官方额度与自有 key 共存 |
-| `replace` | 只显示 BYOK 槽位，并展示干净的模型名（如 `Claude Opus 4.8`） | 非 Pro 账号；列表清爽 |
+| `replace`（默认） | 只显示 BYOK 槽位，并展示干净的模型名（如 `Claude Opus 4.8`） | 多数场景；列表清爽、所见即所得 |
+| `inject` | 保留官方模型，追加 BYOK 槽位 | Pro 账号，官方额度与自有 key 共存 |
 | `off` | 不接管，原样放行上游清单 | 排障 / 一键退回 |
 
-在侧栏「控制状态 → 代理控制 → 模型列表模式」切换，即时生效（无需重启代理）；
+在侧栏「控制状态 → 模型接管 → 模型列表模式」切换，即时生效（无需重启代理）；
 Devin 侧重新打开模型下拉框即可看到变化。任何解析异常都会回落为原样放行。
 
 ### 默认使用 Cascade
@@ -251,7 +251,7 @@ Devin 新建会话默认选中「Devin Local」，而该模式走 ACP 协议与�
 **不经过本插件代理**，其模型列表里没有 BYOK 条目（显示 `None selected`），
 需手动切到 Cascade 才能使用。
 
-侧栏「控制状态 → 代理控制 → 默认 Cascade」开关（默认开启）会把 Devin 自身的
+侧栏「控制状态 → 模型接管 → 默认使用 Cascade」开关（默认开启）会把 Devin 自身的
 `acp.preferredAgent` 设为 Cascade 哨兵值 `__cascade__`，使新建会话默认用 Cascade。
 修改的是 Devin 的用户设置（非本插件 `.env`），**需重载窗口生效**。
 若你已手动指定了其他 agent（如 `claude-code`），插件不会覆盖该选择。

@@ -332,6 +332,44 @@
     }
   }
 
+  /* ========== 设置行（卡片内的「标签 + 控件」统一模式） ========== */
+  /* 标签在左、控件在右，控件右对齐后多行之间垂直对齐；说明文字另起一行占满宽度，
+     避免挤在控件旁边被压窄或换行 */
+  .set-row {
+    @apply flex items-start justify-between gap-2 py-1.5;
+  }
+  .set-row + .set-row {
+    @apply border-t border-vsborder;
+  }
+  .set-row-main {
+    @apply flex flex-col gap-0.5 min-w-0 flex-1;
+  }
+  .set-row-label {
+    @apply text-[11px] text-vsinputfg font-medium leading-tight;
+  }
+  .set-row-hint {
+    @apply text-[10px] text-vsdesc leading-snug;
+  }
+  .set-row-hint.warn {
+    @apply text-amber-400/90;
+  }
+  .set-row-ctl {
+    @apply flex-shrink-0 flex items-center pt-0.5;
+  }
+
+  /* 卡片内的次级分区：一条细分隔线 + 小标题 */
+  .sec {
+    @apply pt-2 mt-2 border-t border-vsborder;
+  }
+  .sec-label {
+    @apply text-[9px] text-vsdesc font-semibold uppercase tracking-wider mb-1.5;
+  }
+
+  /* 主操作按钮占满整行，建立明确的视觉层级 */
+  .btn-block {
+    @apply w-full justify-center;
+  }
+
   /* ========== 其他组件 ========== */
   .row {
     @apply flex items-center gap-1.5;

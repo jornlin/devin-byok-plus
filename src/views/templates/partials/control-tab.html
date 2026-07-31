@@ -45,51 +45,72 @@
     </div>
 </div>
 
-<!-- 代理控制卡片 -->
+<!-- 代理控制卡片：主操作在最上，端口这类一次性配置收进折叠区 -->
 <div class="card" style="margin-bottom:12px">
     <div class="card-head">代理控制</div>
-    <!-- 端口配置 -->
-    <div style="margin-bottom:10px">
-        <div class="fg">
-            <label>Hybrid 端口</label>
-            <input type="number" id="cfgHybridPort" value="{{hybridPort}}" placeholder="3006" min="1" max="65535">
-        </div>
-        <div class="fg" style="margin-bottom:0">
-            <label>Inference 端口</label>
-            <input type="number" id="cfgInferencePort" value="{{inferencePort}}" placeholder="3001" min="1" max="65535">
-        </div>
-    </div>
 
-    <!-- 模型列表接管模式 -->
-    <div style="margin-bottom:10px">
-        <div class="fg" style="margin-bottom:0">
-            <label title="控制 Devin 模型下拉列表的接管方式。注入=保留官方模型并追加 BYOK 槽位（Pro 账号可继续使用官方额度）；替换=只显示 BYOK 槽位并展示干净的模型名；关闭=不接管上游清单">模型列表模式 <span class="hint">（切换后需重启代理）</span></label>
-            <select id="cfgModelListMode" title="注入：保留官方模型并追加 BYOK 槽位；替换：只显示 BYOK 槽位（干净模型名）；关闭：不接管模型列表">{{modelListModeOptions}}</select>
-        </div>
-    </div>
-
-    <!-- 控制按钮 -->
-    <div class="btns" style="margin-bottom:10px" id="proxyControlButtons">
+    <!-- 主操作：占满整行，建立明确的视觉层级 -->
+    <div id="proxyControlButtons" style="margin-bottom:6px">
         {{proxyControlButtons}}
-        <button type="button" class="btn btn-s sm" data-ws-action="maintenanceTools">维护工具</button>
     </div>
 
-    <!-- 自动启动 + 新窗口 -->
-    <div class="row between" style="padding:2px 0">
-        <div class="row">
-            <span style="font-size:11px;color:{{inputFgColor}}">自动启动</span>
+    <!-- 次级操作 -->
+    <div class="btns" style="margin-bottom:2px">
+        <button type="button" class="btn btn-s sm" data-ws-action="maintenanceTools">维护工具</button>
+        <button type="button" class="btn btn-s sm" data-ws-action="newWindow">新窗口</button>
+    </div>
+
+    <!-- 偏好 -->
+    <div class="set-row">
+        <div class="set-row-main">
+            <span class="set-row-label">自动启动</span>
+            <span class="set-row-hint">打开窗口时自动启动代理</span>
+        </div>
+        <div class="set-row-ctl">
             <label class="tog"><input type="checkbox" id="cfgAutoStartProxy" {{autoStartChecked}}><span></span></label>
         </div>
-        <button type="button" class="btn btn-s sm" data-ws-action="newWindow" style="font-size:10px;padding:3px 8px">新窗口</button>
     </div>
 
-    <!-- 默认使用 Cascade -->
-    <div class="row between" style="padding:2px 0">
-        <div class="row">
-            <span style="font-size:11px;color:{{inputFgColor}}" title="Devin 新建会话默认选中「Devin Local」，而该模式走 ACP 协议与独立 CLI，不经过本插件代理，模型列表里没有 BYOK 条目（显示 None selected）。开启后新建会话默认使用 Cascade。修改的是 Devin 自身的 acp.preferredAgent 设置，需重载窗口生效。">默认 Cascade</span>
+    <!-- 端口：设置一次即长期不动，默认折叠 -->
+    <div class="sec">
+        <div class="card-head collapsible-head collapsed" style="margin-bottom:0;padding:0" data-ws-toggle="proxyPortsBody">
+            <span>端口设置</span>
+            <span class="hint ml-auto mr-1" id="proxyPortsSummary">{{hybridPort}} / {{inferencePort}}</span>
+        </div>
+        <div id="proxyPortsBody" class="hidden" style="padding-top:8px">
+            <div class="fg">
+                <label>Hybrid 端口</label>
+                <input type="number" id="cfgHybridPort" value="{{hybridPort}}" placeholder="3006" min="1" max="65535">
+            </div>
+            <div class="fg" style="margin-bottom:0">
+                <label>Inference 端口</label>
+                <input type="number" id="cfgInferencePort" value="{{inferencePort}}" placeholder="3001" min="1" max="65535">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 模型接管卡片：两项都是「让 BYOK 模型在 Devin 界面里可选」，归到一处 -->
+<div class="card" style="margin-bottom:12px">
+    <div class="card-head">
+        <span>模型接管</span>
+        <span class="hint ml-auto mr-1">让 BYOK 槽位在 Devin 中可选</span>
+    </div>
+
+    <div class="fg" style="margin-bottom:6px">
+        <label title="控制 Devin 模型下拉列表的接管方式。替换=只显示 BYOK 槽位并展示干净的模型名；注入=保留官方模型并追加 BYOK 槽位（Pro 账号可继续使用官方额度）；关闭=不接管上游清单">模型列表模式</label>
+        <select id="cfgModelListMode" title="替换：只显示 BYOK 槽位（干净模型名）；注入：保留官方模型并追加 BYOK 槽位；关闭：不接管模型列表">{{modelListModeOptions}}</select>
+    </div>
+    <div class="set-row-hint" style="margin-bottom:2px">即时生效，在 Devin 中重新打开模型下拉框即可看到变化</div>
+
+    <div class="set-row">
+        <div class="set-row-main">
+            <span class="set-row-label" title="Devin 新建会话默认选中「Devin Local」，而该模式走 ACP 协议与独立 CLI，不经过本插件代理，模型列表里没有 BYOK 条目（显示 None selected）。开启后新建会话默认使用 Cascade。修改的是 Devin 自身的 acp.preferredAgent 设置，需重载窗口生效。">默认使用 Cascade</span>
+            <span id="preferCascadeHintText" class="set-row-hint">{{preferCascadeHint}}</span>
+        </div>
+        <div class="set-row-ctl">
             <label class="tog"><input type="checkbox" id="cfgPreferCascadeAgent" {{preferCascadeChecked}}><span></span></label>
         </div>
-        <span id="preferCascadeHintText" style="font-size:10px;color:{{inputFgColor}};opacity:.7">{{preferCascadeHint}}</span>
     </div>
 </div>
 

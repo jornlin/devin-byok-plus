@@ -965,7 +965,7 @@ class SidebarProvider {
     }
     // 模型列表接管模式白名单清洗，非法值回落到默认的 inject
     if (!['inject', 'replace', 'off'].includes(String(tmp2.MODEL_LIST_MODE || '').toLowerCase())) {
-      tmp2.MODEL_LIST_MODE = 'inject';
+      tmp2.MODEL_LIST_MODE = 'replace';
     }
     if (!sidebarUtils_1.isValidCompletionTimeoutValue(tmp2.COMPLETION_TIMEOUT_MS)) {
       tmp2.COMPLETION_TIMEOUT_MS = '12000';
@@ -1774,7 +1774,7 @@ class SidebarProvider {
         try {
           const mode = profileStore_1.sanitizeModelListMode(tmp02.value);
           const envConfig = this.proxyManager.readEnvConfig();
-          if (String(envConfig.MODEL_LIST_MODE || 'inject') === mode) {
+          if (String(envConfig.MODEL_LIST_MODE || 'replace') === mode) {
             break;
           }
           envConfig.MODEL_LIST_MODE = mode;

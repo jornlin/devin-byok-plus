@@ -16,7 +16,7 @@ const projectRoot = join(__dirname, '../..');
 const require = createRequire(import.meta.url);
 
 // 渲染侧栏 HTML（模块化后 HTML 在 templates/partials，需渲染后校验）
-function renderHtml() {
+function renderSidebarHtmlWith(over = {}) {
   const { renderSidebarHtml } = require(join(projectRoot, 'src/views/sidebarTemplate.js'));
   return renderSidebarHtml({
     nonce: 'n', cspSource: 'c', scriptUri: 's.js', cssUri: 'c.css',
@@ -24,8 +24,13 @@ function renderHtml() {
     tmp2: {}, tmp8: '', tmp9: false, tmp10: 'n', tmp11: 'c', tmp12: 's.js', tmp12a: 't.css',
     tmp16: '#888', tmp17: '#888', tmp21: '#444',
     tmp25: '', tmp26: '', tmp27: '', tmp28: '', tmp29: '', tmp30: '', tmp31: '', tmp32: '',
-    tmp3: '', tmp4: '', tmp5: false, tmp6: '', tmp34: 'badge-warning', tmp35: '未安装', tmp36: '等待日志...'
+    tmp3: '', tmp4: '', tmp5: false, tmp6: '', tmp34: 'badge-warning', tmp35: '未安装', tmp36: '等待日志...',
+    ...over,
   });
+}
+
+function renderHtml() {
+  return renderSidebarHtmlWith();
 }
 
 test('CSS 文件完整性', async (t) => {
@@ -252,7 +257,7 @@ test('模型列表模式开关可见性', async (t) => {
     );
   });
 
-  await t.test('select 含三档且默认选中 inject', () => {
+  await t.test('select 含三档且默认选中 replace', () => {
     const match = html.match(/<select id="cfgModelListMode"[^>]*>([\s\S]*?)<\/select>/);
     assert.ok(match, '应该渲染出 cfgModelListMode 的 select');
     const options = match[1];
@@ -260,8 +265,13 @@ test('模型列表模式开关可见性', async (t) => {
       assert.ok(options.includes(`value="${value}"`), `应该有 ${value} 选项`);
     }
     assert.ok(
-      /value="inject" selected/.test(options),
-      '未配置时应默认选中 inject（保留官方模型）'
+      /value="replace" selected/.test(options),
+      '未配置时应默认选中 replace（只显示 BYOK 槽位）'
+    );
+    // 替换是默认项，应排在第一个
+    assert.ok(
+      options.indexOf('value="replace"') < options.indexOf('value="inject"'),
+      'replace 应作为默认项排在最前'
     );
   });
 
@@ -288,6 +298,101 @@ test('模型列表模式开关可见性', async (t) => {
       provider.includes("case 'setModelListMode'"),
       'sidebarProvider 应处理 setModelListMode'
     );
+  });
+});
+
+test('控制状态页排版与交互', async (t) => {
+  const html = renderHtml();
+  const controlTab = readFileSync(
+    join(projectRoot, 'src/views/templates/partials/control-tab.html'),
+    'utf-8'
+  );
+
+  await t.test('主操作占满整行且位于卡片顶部', () => {
+    // 启动/停止是本页最主要的操作，必须先于次级操作出现并有最强视觉权重
+    assert.ok(
+      /btn btn-p btn-block" data-ws-action="startProxy"/.test(html),
+      '主操作应带 btn-block 占满整行'
+    );
+    const iPrimary = html.indexOf('btn-block');
+    const iMaint = html.indexOf('data-ws-action="maintenanceTools"');
+    assert.ok(iPrimary < iMaint, '主操作应在次级操作之前');
+  });
+
+  await t.test('运行中时停止按钮同样占满整行', () => {
+    const running = renderSidebarHtmlWith({
+      tmp02: { hybridPort: 3006, inferencePort: 3001, running: true, uptime: 1000, requestCount: 5 },
+    });
+    assert.ok(/btn btn-d btn-block" data-ws-action="stopProxy"/.test(running));
+  });
+
+  await t.test('次级操作不与模板重复渲染', () => {
+    // sidebar.js 的运行时渲染曾把 维护工具/仅保存配置 一并注入，导致页面出现两份
+    const count = (s) =>
+      (html.match(new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+    assert.equal(count('data-ws-action="maintenanceTools"'), 1, '维护工具应只有一个');
+    assert.equal(count('data-ws-action="newWindow"'), 1, '新窗口应只有一个');
+
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    const rt = sidebarJs.match(/proxyControlButtons[\s\S]{0,900}?innerHTML = tmp02/);
+    assert.ok(rt, '应找到运行时渲染逻辑');
+    assert.ok(
+      !/maintenanceTools|saveConfig/.test(rt[0]),
+      '运行时渲染不应包含次级按钮，否则与模板重复'
+    );
+  });
+
+  await t.test('端口默认折叠，收起时显示摘要', () => {
+    // 端口是设置一次即长期不动的值，不该长期占据顶部空间
+    assert.ok(
+      /id="proxyPortsBody"[^>]*class="hidden"/.test(html),
+      '端口区应默认折叠'
+    );
+    assert.ok(
+      html.includes('id="proxyPortsSummary">3006 / 3001<'),
+      '折叠时应在标题右侧显示当前端口'
+    );
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    assert.ok(
+      sidebarJs.includes('proxyPortsSummary'),
+      '端口摘要需随输入实时更新，否则会显示过期值'
+    );
+  });
+
+  await t.test('两个开关使用统一的 set-row 结构', () => {
+    // 此前两行分别是 label+toggle 左对齐、右侧一个按钮/一段文字，
+    // 导致开关无法垂直对齐、右侧内容语义不一致
+    assert.ok((controlTab.match(/class="set-row"/g) || []).length >= 2);
+    for (const id of ['cfgAutoStartProxy', 'cfgPreferCascadeAgent']) {
+      const i = controlTab.indexOf(id);
+      const before = controlTab.slice(0, i);
+      const rowStart = before.lastIndexOf('class="set-row"');
+      assert.ok(rowStart > 0, `${id} 应位于 set-row 内`);
+      assert.ok(
+        before.slice(rowStart).includes('set-row-ctl'),
+        `${id} 应放在 set-row-ctl 内以右对齐`
+      );
+    }
+  });
+
+  await t.test('说明文字在标签下方而非挤在控件旁', () => {
+    assert.ok(
+      /set-row-main[\s\S]{0,300}preferCascadeHintText/.test(controlTab),
+      '提示应在 set-row-main 内占满宽度，长文案才不会挤压控件'
+    );
+  });
+
+  await t.test('新增的 CSS 组件类已产出到构建产物', () => {
+    const css = readFileSync(join(projectRoot, 'resources/webviews/dist/sidebar.css'), 'utf-8');
+    for (const cls of ['set-row', 'set-row-main', 'set-row-ctl', 'set-row-hint', 'btn-block']) {
+      assert.ok(css.includes('.' + cls), `构建产物应包含 .${cls}`);
+    }
+  });
+
+  await t.test('不再声称切换模式需要重启代理', () => {
+    // 已实现 reloadRuntimeConfig 热更新，旧文案是事实错误
+    assert.ok(!html.includes('切换后需重启代理'));
+    assert.ok(html.includes('即时生效'));
   });
 });
 
@@ -367,6 +472,15 @@ test('默认 Cascade 开关', async (t) => {
     // interpolate() 对未匹配的键会原样保留 {{key}}，会直接显示在 UI 上
     const leftovers = [...html.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
     assert.deepEqual(leftovers, [], '不应有未解析的占位符: ' + leftovers.join(', '));
+  });
+
+  await t.test('与模型列表模式同处「模型接管」卡片', () => {
+    // 两项都是「让 BYOK 槽位在 Devin 中可选」，归到一张卡片才能自解释
+    const iModel = controlTab.indexOf('cfgModelListMode');
+    const iCascade = controlTab.indexOf('cfgPreferCascadeAgent');
+    const iCardHead = controlTab.indexOf('模型接管');
+    assert.ok(iCardHead > 0, '应有「模型接管」卡片');
+    assert.ok(iModel > iCardHead && iCascade > iCardHead, '两项都应在该卡片内');
   });
 
   await t.test('切换时发送 setPreferCascadeAgent 消息', () => {

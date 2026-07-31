@@ -37,7 +37,7 @@ const MODEL_LIST_MODE_VALUES = ['inject', 'replace', 'off'];
  */
 function sanitizeModelListMode(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  return MODEL_LIST_MODE_VALUES.includes(normalized) ? normalized : 'inject';
+  return MODEL_LIST_MODE_VALUES.includes(normalized) ? normalized : 'replace';
 }
 
 function createDefaultProfile(envConfig = {}) {

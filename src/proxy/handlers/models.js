@@ -86,7 +86,7 @@ function sanitizeOpenAIReasoningMode(arg0) {
  */
 export function sanitizeModelListMode(arg0) {
   const tmp1 = String(arg0 ?? "").trim().toLowerCase();
-  return ["inject", "replace", "off"].includes(tmp1) ? tmp1 : "inject";
+  return ["inject", "replace", "off"].includes(tmp1) ? tmp1 : "replace";
 }
 function sanitizeBooleanString(arg0) {
   return String(arg0 ?? "").trim().toLowerCase() === "true";
@@ -188,7 +188,7 @@ export function getRuntimeConfig() {
  * 当前模型列表接管模式：inject | replace | off
  */
 export function getModelListMode() {
-  return _runtimeConfig.modelListMode || "inject";
+  return _runtimeConfig.modelListMode || "replace";
 }
 export function getProviderConfig(tmp0 = null) {
   if (tmp0 === 1 || tmp0 === 2 || tmp0 === 3 || tmp0 === 4) {

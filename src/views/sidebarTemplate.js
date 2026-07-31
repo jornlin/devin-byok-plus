@@ -32,10 +32,10 @@ function renderSidebarHtml(ctx) {
   const buildModelListModeOptions = (selected) => {
     const current = ['inject', 'replace', 'off'].includes(String(selected || '').toLowerCase())
       ? String(selected).toLowerCase()
-      : 'inject';
+      : 'replace';
     const opts = [
-      ['inject', '注入 · 官方模型 + BYOK 槽位'],
       ['replace', '替换 · 只显示 BYOK 槽位'],
+      ['inject', '注入 · 官方模型 + BYOK 槽位'],
       ['off', '关闭 · 不接管模型列表'],
     ];
     return opts
@@ -287,7 +287,7 @@ function renderSidebarHtml(ctx) {
     // 控制状态数据
     hybridPort: esc(String(tmp02.hybridPort)),
     inferencePort: esc(String(tmp02.inferencePort)),
-    proxyControlButtons: tmp02.running ? '<button type="button" class="btn btn-d" data-ws-action="stopProxy">停止代理</button>' : '<button type="button" class="btn btn-p" data-ws-action="startProxy" data-ws-mode="both">一键启动</button>',
+    proxyControlButtons: tmp02.running ? '<button type="button" class="btn btn-d btn-block" data-ws-action="stopProxy">停止代理</button>' : '<button type="button" class="btn btn-p btn-block" data-ws-action="startProxy" data-ws-mode="both">一键启动</button>',
     autoStartChecked: tmp5 ? 'checked' : '',
 
     // 默认使用 Cascade（避免新会话落到 Devin Local —— 那条链路不经过本插件代理）

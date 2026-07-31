@@ -142,24 +142,29 @@ test("MODEL_LIST_MODE 能穿过 profileStore 往返（方案切换不丢设置�
     );
   }
 
-  // 缺省 / 非法值回落 inject
+  // 缺省 / 非法值回落 replace（默认只显示 BYOK 槽位）
   assert.equal(
     store.projectToEnvConfig(store.createDefaultProfile({})).MODEL_LIST_MODE,
-    "inject"
+    "replace"
   );
   assert.equal(
     store.createDefaultProfile({ MODEL_LIST_MODE: "bogus" }).advanced.modelListMode,
-    "inject"
+    "replace"
   );
   assert.equal(
-    store.createDefaultProfile({ MODEL_LIST_MODE: "REPLACE" }).advanced.modelListMode,
-    "replace"
+    store.createDefaultProfile({ MODEL_LIST_MODE: "INJECT" }).advanced.modelListMode,
+    "inject",
+    "应大小写归一"
   );
 
   // 老方案（advanced 无此字段）不应崩
   const legacy = store.createDefaultProfile({ MODEL_LIST_MODE: "replace" });
   delete legacy.advanced.modelListMode;
-  assert.equal(store.projectToEnvConfig(legacy).MODEL_LIST_MODE, "inject", "老方案应回落 inject");
+  assert.equal(
+    store.projectToEnvConfig(legacy).MODEL_LIST_MODE,
+    "replace",
+    "老方案（advanced 无该字段）应回落到默认的 replace"
+  );
 
   // 不同方案互不污染
   const pA = store.createDefaultProfile({ MODEL_LIST_MODE: "replace", BYOK1_MODEL: "a" });
