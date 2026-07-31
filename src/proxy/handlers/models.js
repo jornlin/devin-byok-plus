@@ -78,6 +78,16 @@ function sanitizeOpenAIReasoningMode(arg0) {
   const tmp1 = String(arg0 ?? "").trim().toLowerCase();
   return ["standard", "pro"].includes(tmp1) ? tmp1 : "";
 }
+/**
+ * 清洗模型列表接管模式。
+ * inject  = 保留官方模型 + 追加 BYOK 槽位条目（默认，Pro 账号可继续用官方额度）
+ * replace = 丢弃官方条目，只保留 BYOK 槽位
+ * off     = 完全不接管，原样放行上游响应
+ */
+export function sanitizeModelListMode(arg0) {
+  const tmp1 = String(arg0 ?? "").trim().toLowerCase();
+  return ["inject", "replace", "off"].includes(tmp1) ? tmp1 : "inject";
+}
 function sanitizeBooleanString(arg0) {
   return String(arg0 ?? "").trim().toLowerCase() === "true";
 }
@@ -91,6 +101,7 @@ function sanitizePositiveInteger(arg0, arg1, tmp2 = 1, tmp3 = Number.MAX_SAFE_IN
 let _runtimeConfig = {
   defaultModel: process.env.DEFAULT_MODEL || "",
   maxTokens: parseInt(process.env.MAX_TOKENS || "32768", 10),
+  modelListMode: sanitizeModelListMode(process.env.MODEL_LIST_MODE),
   anthropicHost: _initialAnthropicHost,
   anthropicApiPath: process.env.ANTHROPIC_API_PATH || "/v1/messages",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -173,6 +184,12 @@ export function getRuntimeConfig() {
   };
   return tmp0;
 }
+/**
+ * 当前模型列表接管模式：inject | replace | off
+ */
+export function getModelListMode() {
+  return _runtimeConfig.modelListMode || "inject";
+}
 export function getProviderConfig(tmp0 = null) {
   if (tmp0 === 1 || tmp0 === 2 || tmp0 === 3 || tmp0 === 4) {
     return buildProviderFromSlot(getSlotRuntime(tmp0));
@@ -245,6 +262,9 @@ export function setRuntimeConfig(arg0) {
   }
   if (arg0.maxTokens && Number.isInteger(arg0.maxTokens) && arg0.maxTokens > 0) {
     _runtimeConfig.maxTokens = arg0.maxTokens;
+  }
+  if (Object.prototype.hasOwnProperty.call(arg0, "MODEL_LIST_MODE")) {
+    _runtimeConfig.modelListMode = sanitizeModelListMode(arg0.MODEL_LIST_MODE);
   }
   let tmp1 = false;
   tmp1 = applySlotPatch(arg0, 1) || tmp1;

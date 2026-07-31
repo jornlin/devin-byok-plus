@@ -6,9 +6,10 @@ import fs from "node:fs";
 import { handleGetChatMessage } from "./handlers/chat.js";
 import { handleGetWebSearchResults, handleGetWebSearchRedirect } from "./handlers/web-search.js";
 import { handleGetEmbeddings } from "./handlers/embeddings.js";
-import { handleModelsRequest, handleConfigRequest } from "./handlers/models.js";
+import { handleModelsRequest, handleConfigRequest, getModelListMode } from "./handlers/models.js";
+import { modifyGetUserStatusResponse, modifyGetCascadeModelConfigsResponse } from "./handlers/model-configs.js";
 import { parseFields, writeStringField, writeBytesField, writeVarintField, writeFixed64Field, writeFixed32Field } from "./proto.js";
-import { tryGunzip, bufferedResponseHeaders } from "./connect.js";
+import { tryGunzip, bufferedResponseHeaders, gzipSync } from "./connect.js";
 import crypto from "node:crypto";
 import { startWSBridge, getChatQueue, ackChatQueue, pushChatQueue, setActiveMonitorTarget } from "./ws-bridge.js";
 import { getLoopbackListenHosts, loopbackApiUrl } from "./net-utils.js";
@@ -213,8 +214,152 @@ function proxyToCodeium(arg0, arg1, arg2, arg3, tmp4 = {}) {
   });
   tmp13.end(arg2);
 }
+/**
+ * 转发到上游并缓冲完整响应（不写回客户端），供需要改写响应体的处理器使用。
+ * @returns {Promise<{statusCode:number, headers:Object, body:Buffer}>}
+ */
+function proxyToCodeiumBuffered(arg0, arg1) {
+  const tmp2 = getUpstreamHost(arg0.url);
+  const tmp3 = stripRoutePrefix(arg0.url);
+  const tmp4 = { ...arg0.headers };
+  delete tmp4.host;
+  delete tmp4.connection;
+  tmp4.host = tmp2;
+  Object.assign(tmp4, signUpstreamRequest(arg0.method, tmp3, arg1));
+  return new Promise((fn, fn2) => {
+    const tmp5 = https.request(
+      { hostname: tmp2, port: 443, path: tmp3, method: arg0.method, headers: tmp4 },
+      arg02 => {
+        const tmp0 = [];
+        arg02.on("data", arg03 => tmp0.push(arg03));
+        arg02.on("end", () =>
+          fn({
+            statusCode: arg02.statusCode,
+            headers: arg02.headers,
+            body: Buffer.concat(tmp0)
+          })
+        );
+        arg02.on("error", fn2);
+      }
+    );
+    tmp5.on("error", fn2);
+    tmp5.end(arg1);
+  });
+}
+
+/**
+ * 拦截模型清单响应，注入 / 替换 BYOK 槽位条目。
+ * 任何环节出问题都回落到原样转发 —— 空的模型下拉框比「有列表但选不到 BYOK」更糟。
+ * @param {string} arg4 - "userStatus" | "cascadeConfigs"
+ */
+async function handleModelListIntercept(arg0, arg1, arg2, arg3, arg4) {
+  let tmp5;
+  try {
+    tmp5 = await proxyToCodeiumBuffered(arg0, arg2);
+  } catch (tmp0) {
+    console.error("  [#" + arg3 + "] ✗ upstream: " + tmp0.message);
+    if (!arg1.headersSent) {
+      arg1.writeHead(502);
+    }
+    if (!arg1.writableEnded) {
+      arg1.end("Upstream error: " + tmp0.message);
+    }
+    return;
+  }
+
+  const sendAsIs = () => {
+    arg1.writeHead(tmp5.statusCode, bufferedResponseHeaders(tmp5.headers, tmp5.body.length));
+    arg1.end(tmp5.body);
+  };
+
+  if (tmp5.statusCode !== 200 || tmp5.body.length === 0) {
+    sendAsIs();
+    return;
+  }
+
+  try {
+    // 外层 gzip（HTTP content-encoding）
+    const tmp6 = tryGunzip(tmp5.body);
+    const tmp7 = tmp6 || tmp5.body;
+
+    // Connect unary 可能再套一层 5 字节 envelope：[压缩标志1B][大端长度4B][payload]
+    // 与 RegisterUser / unwrapRequest 采用同一套「探测后分支」写法，不假定某一种格式
+    let tmp8 = tmp7;
+    let tmp9 = false;
+    let tmp10 = 0;
+    if (tmp7.length > 5) {
+      const tmp0 = tmp7[0];
+      const tmp1 = tmp7.readUInt32BE(1);
+      if (tmp1 === tmp7.length - 5 && tmp0 <= 1) {
+        tmp9 = true;
+        tmp10 = tmp0;
+        tmp8 = tmp7.subarray(5);
+        if (tmp0 === 1) {
+          const tmp2 = tryGunzip(tmp8);
+          if (tmp2) {
+            tmp8 = tmp2;
+          }
+        }
+      }
+    }
+
+    const tmp11 =
+      arg4 === "userStatus"
+        ? modifyGetUserStatusResponse(tmp8)
+        : modifyGetCascadeModelConfigsResponse(tmp8);
+    if (!tmp11.changed) {
+      sendAsIs();
+      return;
+    }
+
+    // 按原样式重新封装：先还 envelope（标志位写 0 表示 payload 未压缩），再还外层 gzip
+    let tmp12 = tmp11.bytes;
+    if (tmp9) {
+      const tmp0 = Buffer.alloc(5 + tmp12.length);
+      tmp0[0] = 0;
+      tmp0.writeUInt32BE(tmp12.length, 1);
+      tmp12.copy(tmp0, 5);
+      tmp12 = tmp0;
+    }
+    const tmp13 = tmp6 ? gzipSync(tmp12) : tmp12;
+    arg1.writeHead(tmp5.statusCode, bufferedResponseHeaders(tmp5.headers, tmp13.length));
+    arg1.end(tmp13);
+    console.log(
+      "  [#" +
+        arg3 +
+        "] 🔧 model list " +
+        tmp11.mode +
+        ": +" +
+        tmp11.injected +
+        " BYOK 条目" +
+        (tmp9 ? " [envelope" + (tmp10 === 1 ? "+gzip" : "") + "]" : "")
+    );
+  } catch (tmp0) {
+    console.error(
+      "  [#" + arg3 + "] ⚠️  model list 改写失败，已原样放行: " + tmp0.message
+    );
+    sendAsIs();
+  }
+}
+
 function routeRequest(arg0, arg1, arg2, arg3, tmp4 = "") {
   const tmp5 = getRpcMethod(arg0.url);
+  if (tmp5 === "GetUserStatus" || tmp5 === "GetCascadeModelConfigs") {
+    if (getModelListMode() !== "off") {
+      const tmp0 = tmp5 === "GetUserStatus" ? "userStatus" : "cascadeConfigs";
+      console.log(
+        "[" + now() + "] #" + arg3 + " 🔧 " + tmp4 + tmp5 + " → 接管清单 (" + arg2.length + "b)"
+      );
+      safeHandle(
+        () => handleModelListIntercept(arg0, arg1, arg2, arg3, tmp0),
+        arg0,
+        arg1,
+        arg3,
+        "ModelList"
+      );
+      return true;
+    }
+  }
   if (tmp5 === "GetChatMessage") {
     console.log("[" + now() + "] #" + arg3 + " ⚡ " + tmp4 + "GetChatMessage → API (" + arg2.length + "b)");
     safeHandle(() => handleGetChatMessage(arg0, arg1, arg2), arg0, arg1, arg3, "Chat");
