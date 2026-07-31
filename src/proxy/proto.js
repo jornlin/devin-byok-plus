@@ -118,6 +118,57 @@ export function parseFields(arg0) {
   }
   return tmp1;
 }
+/**
+ * 把 parseFields() 输出的单个字段重新编码回 protobuf 字节。
+ * 用于「解析 → 局部修改 → 重新序列化」时保留所有未识别字段，
+ * 避免改写嵌套消息时丢失上游新增的字段。
+ * @param {{field:number,wireType:number,value:*}} arg0
+ * @returns {Buffer} 编码后的字节；未知 wireType 返回空 Buffer
+ */
+export function reserializeField(arg0) {
+  if (!arg0) {
+    return Buffer.alloc(0);
+  }
+  switch (arg0.wireType) {
+    case 0:
+      return writeVarintField(arg0.field, arg0.value);
+    case 1:
+      return writeFixed64Field(arg0.field, arg0.value);
+    case 2:
+      return writeBytesField(arg0.field, arg0.value);
+    case 5:
+      return writeFixed32Field(arg0.field, arg0.value);
+    default:
+      console.warn("[proto] reserializeField: unknown wire type " + arg0.wireType + " at field " + arg0.field + " — dropping");
+      return Buffer.alloc(0);
+  }
+}
+
+/**
+ * 重建一条消息：替换若干字段的值，保留其余所有原字段（含未识别字段）。
+ * protobuf 不要求字段有序，但为稳妥起见按字段号升序输出。
+ * @param {Array} arg0 - parseFields() 的输出
+ * @param {Record<number, Buffer[]>} arg1 - 字段号 → 新值列表（每项为一条子消息的字节）
+ * @returns {Buffer}
+ */
+export function replaceFields(arg0, arg1) {
+  const tmp2 = arg1 || {};
+  const tmp3 = new Set(Object.keys(tmp2).map(Number));
+  const tmp4 = [];
+  for (const tmp0 of arg0 || []) {
+    if (!tmp3.has(tmp0.field)) {
+      tmp4.push({ field: tmp0.field, bytes: reserializeField(tmp0) });
+    }
+  }
+  for (const tmp0 of tmp3) {
+    for (const tmp02 of tmp2[tmp0] || []) {
+      tmp4.push({ field: tmp0, bytes: writeBytesField(tmp0, tmp02) });
+    }
+  }
+  tmp4.sort((arg02, arg12) => arg02.field - arg12.field);
+  return Buffer.concat(tmp4.map(arg02 => arg02.bytes));
+}
+
 export function getField(arg0, arg1, arg2) {
   return arg0.find(arg02 => arg02.field === arg1 && (arg2 === undefined || arg02.wireType === arg2));
 }
