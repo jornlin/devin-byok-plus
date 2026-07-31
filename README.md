@@ -220,7 +220,8 @@ OPENAI_THINKING_ENABLED=
 ```
 HYBRID_PORT=3006
 INFERENCE_PORT=3001
-MAX_TOKENS=32768              # 单次输出上限（非上下文窗口）
+MAX_TOKENS=32768              # 单次输出上限（发往上游 API）
+CONTEXT_WINDOW=200000         # 上下文窗口（仅影响 Devin 界面显示）
 COMPLETION_TIMEOUT_MS=12000
 MODEL_LIST_MODE=replace       # 模型列表接管：replace / inject / off
 SYSTEM_PROMPT_OVERRIDE=
@@ -240,7 +241,24 @@ JSON 不完整、SSE 中途断流、重试同一请求无效。故默认取 3276
 
 侧栏「配置连接 → 高级路由配置 → 最大 Token」提供 4K / 8K / 16K / 32K（推荐）/
 64K / 128K 六档预设，也可选「自定义…」手动填写任意值；超过 64K 时会给出提示。
-当前值会显示在方案列表每一项上（如 `32K`），便于对比不同方案。
+
+### 上下文窗口（`CONTEXT_WINDOW`）
+
+**与 `MAX_TOKENS` 是两个独立概念。** 它只影响 Devin 界面显示的上下文额度，
+不发往上游 API：
+
+- 模型卡片上的 `200K context`
+- 对话框底部上下文进度条的分母（用量百分比）
+
+技术上它写入 `ClientModelConfig.max_tokens`（field 18）。该字段虽名为
+max_tokens，但 Devin 的语义是**上下文窗口**——真正的输出上限在
+`ModelInfo.max_output_tokens`（f13）。同名不同义，容易取错。
+
+侧栏「配置连接 → 高级路由配置 → 上下文窗口」提供 128K / 200K（推荐）/ 256K /
+512K / 1M 五档预设，也可自定义。取值按厂商宣传的十进制口径（200K = 200000）。
+
+两个值都会显示在方案列表每一项上，用符号区分：`↑32K`（输出上限）、
+`⊞200K`（上下文窗口）。
 
 ### 模型列表接管（`MODEL_LIST_MODE`）
 

@@ -68,6 +68,7 @@ const diagnostics_1 = require('../services/diagnostics');
 const promptTemplates_1 = require('../services/promptTemplates');
 const environmentProbe_1 = require('../services/environmentProbe');
 const preferredAgent_1 = require('../services/preferredAgent');
+const maxTokens_1 = require('../services/maxTokens');
 const KEY_AUTO_START_PROXY = 'devin-byok-plus.autoStartProxy';
 const KEY_PREFER_CASCADE = 'devin-byok-plus.preferCascadeAgent';
 const KEY_PATCH_EXTENSION_PATH = 'devin-byok-plus.patchExtensionPath';
@@ -400,7 +401,8 @@ class SidebarProvider {
         inferencePort: norm.INFERENCE_PORT || '',
         anthropicPath: norm.ANTHROPIC_API_PATH || '/v1/messages',
         openaiPath: norm.OPENAI_API_PATH || '/v1/responses',
-        maxTokens: norm.MAX_TOKENS || '64000',
+        maxTokens: String(maxTokens_1.sanitizeMaxTokens(norm.MAX_TOKENS)),
+        contextWindow: String(maxTokens_1.sanitizeContextWindow(norm.CONTEXT_WINDOW)),
         completionTimeout: norm.COMPLETION_TIMEOUT_MS || '12000',
         modelListMode: profileStore_1.sanitizeModelListMode(norm.MODEL_LIST_MODE),
       },
@@ -963,10 +965,13 @@ class SidebarProvider {
     if (!['true', 'false'].includes(tmp2.OPENAI_THINKING_ENABLED || 'false')) {
       tmp2.OPENAI_THINKING_ENABLED = 'false';
     }
-    // 模型列表接管模式白名单清洗，非法值回落到默认的 inject
+    // 模型列表接管模式白名单清洗，非法值回落到默认的 replace
     if (!['inject', 'replace', 'off'].includes(String(tmp2.MODEL_LIST_MODE || '').toLowerCase())) {
       tmp2.MODEL_LIST_MODE = 'replace';
     }
+    // 输出上限与上下文窗口分别清洗（两者语义不同：前者发往上游 API，后者仅供 Devin 显示）
+    tmp2.MAX_TOKENS = String(maxTokens_1.sanitizeMaxTokens(tmp2.MAX_TOKENS));
+    tmp2.CONTEXT_WINDOW = String(maxTokens_1.sanitizeContextWindow(tmp2.CONTEXT_WINDOW));
     if (!sidebarUtils_1.isValidCompletionTimeoutValue(tmp2.COMPLETION_TIMEOUT_MS)) {
       tmp2.COMPLETION_TIMEOUT_MS = '12000';
     }

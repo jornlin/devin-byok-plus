@@ -88,6 +88,17 @@ export function sanitizeModelListMode(arg0) {
   const tmp1 = String(arg0 ?? "").trim().toLowerCase();
   return ["inject", "replace", "off"].includes(tmp1) ? tmp1 : "replace";
 }
+/**
+ * 上下文窗口清洗（写入 ClientModelConfig.max_tokens/f18，仅影响 Devin 界面显示的额度）。
+ * 与 MAX_TOKENS（发往上游 API 的输出上限）是两个独立概念，勿混用。
+ */
+function sanitizeContextWindow(arg0) {
+  const tmp1 = Number.parseInt(String(arg0 ?? "").trim(), 10);
+  if (!Number.isInteger(tmp1) || tmp1 < 1) {
+    return 200000;
+  }
+  return Math.min(tmp1, 10000000);
+}
 function sanitizeBooleanString(arg0) {
   return String(arg0 ?? "").trim().toLowerCase() === "true";
 }
@@ -102,6 +113,7 @@ let _runtimeConfig = {
   defaultModel: process.env.DEFAULT_MODEL || "",
   maxTokens: parseInt(process.env.MAX_TOKENS || "32768", 10),
   modelListMode: sanitizeModelListMode(process.env.MODEL_LIST_MODE),
+  contextWindow: sanitizeContextWindow(process.env.CONTEXT_WINDOW),
   anthropicHost: _initialAnthropicHost,
   anthropicApiPath: process.env.ANTHROPIC_API_PATH || "/v1/messages",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -190,6 +202,12 @@ export function getRuntimeConfig() {
 export function getModelListMode() {
   return _runtimeConfig.modelListMode || "replace";
 }
+/**
+ * 上下文窗口：写入模型条目的 f18，决定 Devin 对话框显示的上下文额度。
+ */
+export function getContextWindow() {
+  return _runtimeConfig.contextWindow || 200000;
+}
 export function getProviderConfig(tmp0 = null) {
   if (tmp0 === 1 || tmp0 === 2 || tmp0 === 3 || tmp0 === 4) {
     return buildProviderFromSlot(getSlotRuntime(tmp0));
@@ -265,6 +283,9 @@ export function setRuntimeConfig(arg0) {
   }
   if (Object.prototype.hasOwnProperty.call(arg0, "MODEL_LIST_MODE")) {
     _runtimeConfig.modelListMode = sanitizeModelListMode(arg0.MODEL_LIST_MODE);
+  }
+  if (Object.prototype.hasOwnProperty.call(arg0, "CONTEXT_WINDOW")) {
+    _runtimeConfig.contextWindow = sanitizeContextWindow(arg0.CONTEXT_WINDOW);
   }
   let tmp1 = false;
   tmp1 = applySlotPatch(arg0, 1) || tmp1;

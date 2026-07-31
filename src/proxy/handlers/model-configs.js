@@ -34,7 +34,7 @@ import {
   writeMessageField,
   replaceFields
 } from "../proto.js";
-import { getModelListMode, getRuntimeConfig, getSlotModel, getSlotThinkingEffort } from "./models.js";
+import { getModelListMode, getContextWindow, getSlotModel, getSlotThinkingEffort } from "./models.js";
 
 /** ClientModelConfig 字段号 */
 const CFG_LABEL = 1;
@@ -42,7 +42,14 @@ const CFG_MODEL_OR_ALIAS = 2;
 const CFG_SUPPORTS_IMAGES = 5;
 const CFG_PROVIDER = 10;
 const CFG_PRICING_TYPE = 13;
-const CFG_MAX_TOKENS = 18;
+/**
+ * field 18 名为 max_tokens，但 Devin 的语义是**上下文窗口**，不是输出上限：
+ *   - 模型卡片渲染为 `${format(maxTokens)} context`
+ *   - 对话框上下文进度条把它当 contextLimit（用量百分比的分母）
+ * 真正的输出上限在 ModelInfo.max_output_tokens(f13)。
+ * 因此这里必须写 CONTEXT_WINDOW，写 MAX_TOKENS 会让界面显示错误的上下文额度。
+ */
+const CFG_CONTEXT_WINDOW = 18;
 const CFG_MODEL_UID = 22;
 
 /** ModelProvider 枚举（决定下拉框里的厂商图标） */
@@ -289,7 +296,7 @@ export function buildSlotLabel(slot, model, mode) {
  * 构造单条 ClientModelConfig。
  * 刻意不写 disabled(f4) 与 disabled_reason(f33)：proto3 下 false 是缺省值，
  * 显式写 0 可能触发严格校验，写了 reason 会让条目在 UI 上变灰不可点。
- * @param {{enumNo:number, uid:string, label:string, maxTokens:number}} arg0
+ * @param {{enumNo:number, uid:string, label:string, provider?:number, contextWindow:number}} arg0
  * @returns {Buffer}
  */
 export function buildClientModelConfig(arg0) {
@@ -298,7 +305,7 @@ export function buildClientModelConfig(arg0) {
     writeMessageField(CFG_MODEL_OR_ALIAS, writeVarintField(MOA_MODEL_ENUM, arg0.enumNo)),
     writeVarintField(CFG_SUPPORTS_IMAGES, 1),
     writeVarintField(CFG_PRICING_TYPE, PRICING_TYPE_BYOK),
-    writeVarintField(CFG_MAX_TOKENS, arg0.maxTokens),
+    writeVarintField(CFG_CONTEXT_WINDOW, arg0.contextWindow),
     writeStringField(CFG_MODEL_UID, arg0.uid)
   ];
   // provider 决定下拉框里的厂商图标；UNSPECIFIED(0) 是 proto3 缺省值，省略以免多写一个字节
@@ -345,14 +352,15 @@ export function collectConfiguredSlots(mode) {
  * @returns {Buffer[]}
  */
 function buildByokConfigBlobs(arg0) {
-  const tmp1 = getRuntimeConfig().maxTokens || 32768;
+  // 注意用的是上下文窗口而非 maxTokens —— f18 在 Devin 里是上下文语义
+  const tmp1 = getContextWindow();
   return arg0.map(arg02 =>
     buildClientModelConfig({
       enumNo: arg02.enumNo,
       uid: arg02.uid,
       label: arg02.label,
       provider: arg02.provider,
-      maxTokens: tmp1
+      contextWindow: tmp1
     })
   );
 }

@@ -348,6 +348,7 @@
       fn13("cfgAnthropicPath", arg0.BYOK1_ANTHROPIC_API_PATH || arg0.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", arg0.BYOK1_OPENAI_API_PATH || arg0.OPENAI_API_PATH || "");
       applyMaxTokensValue(arg0.MAX_TOKENS);
+      applyContextWindowValue(arg0.CONTEXT_WINDOW);
       fn13("cfgModelListMode", ["inject", "replace", "off"].includes(String(arg0.MODEL_LIST_MODE || "").toLowerCase()) ? String(arg0.MODEL_LIST_MODE).toLowerCase() : "replace");
       fn13("cfgSysPromptOverride", arg0.SYSTEM_PROMPT_OVERRIDE === "true" ? "true" : "");
       fn13("cfgSysPromptPath", arg0.SYSTEM_PROMPT_PATH || "");
@@ -432,6 +433,58 @@
       preset.value = MAX_TOKENS_PRESET_VALUES.indexOf(effective) >= 0 ? String(effective) : "custom";
     }
     syncMaxTokensUI();
+  }
+  // 上下文窗口：与 src/services/maxTokens.js 的 CONTEXT_WINDOW_PRESETS 保持一致
+  const CONTEXT_WINDOW_PRESET_VALUES = [128000, 200000, 256000, 512000, 1000000];
+  // 上下文窗口按十进制口径显示（厂商宣传的 200K 指 200000，用 1024 制会显示 195K）
+  function formatContextShort(value) {
+    const n = Number.parseInt(String(value == null ? "" : value).trim(), 10);
+    if (!Number.isInteger(n) || n <= 0) {
+      return "";
+    }
+    const trim = (x) => String(Number(x.toFixed(1))).replace(/\.0$/, "");
+    if (n >= 1000000) {
+      return trim(n / 1000000) + "M";
+    }
+    if (n >= 1000) {
+      return trim(n / 1000) + "K";
+    }
+    return String(n);
+  }
+  function readContextWindow() {
+    const preset = fn4("cfgContextWindowPreset");
+    const custom = fn4("cfgContextWindow");
+    if (preset && preset.value && preset.value !== "custom") {
+      return preset.value;
+    }
+    return (custom && custom.value) || "200000";
+  }
+  function syncContextWindowUI() {
+    const preset = fn4("cfgContextWindowPreset");
+    const custom = fn4("cfgContextWindow");
+    const hint = fn4("cfgContextWindowHint");
+    if (!preset || !custom) {
+      return;
+    }
+    custom.classList.toggle("hidden", preset.value !== "custom");
+    if (hint) {
+      const pretty = formatContextShort(readContextWindow());
+      hint.textContent = pretty ? "Devin 将显示 " + pretty + " 上下文" : "";
+    }
+  }
+  function applyContextWindowValue(value) {
+    const n = Number.parseInt(String(value == null ? "" : value).trim(), 10);
+    const effective = Number.isInteger(n) && n > 0 ? n : 200000;
+    const preset = fn4("cfgContextWindowPreset");
+    const custom = fn4("cfgContextWindow");
+    if (custom && document.activeElement !== custom) {
+      custom.value = String(effective);
+    }
+    if (preset && document.activeElement !== preset) {
+      preset.value =
+        CONTEXT_WINDOW_PRESET_VALUES.indexOf(effective) >= 0 ? String(effective) : "custom";
+    }
+    syncContextWindowUI();
   }
   // 端口折叠区收起时，在标题右侧显示当前端口摘要，避免展开才能看到
   function fn24c() {
@@ -554,10 +607,13 @@
       if (isEditing && !isActive) cls.push("editing");
       const model = p.byok1Model || "未选择模型";
       const host = p.byok1Display || "";
-      // 单次输出上限：各方案常有差异，列在描述行便于一眼对比
+      // 两个值语义不同，分别标注：↑ 为单次输出上限，⊞ 为 Devin 显示的上下文额度
       const tok = formatTokensShort(p.maxTokens);
-      const desc =
-        fn6(host) + " · " + fn6(model) + (tok ? ' <span class="profile-desc-tok" title="单次输出上限 max_tokens">' + fn6(tok) + "</span>" : "");
+      const ctx = formatContextShort(p.contextWindow);
+      const badges =
+        (tok ? ' <span class="profile-desc-tok" title="单次输出上限（max_tokens，发往上游 API）">↑' + fn6(tok) + "</span>" : "") +
+        (ctx ? ' <span class="profile-desc-tok" title="上下文窗口（仅影响 Devin 界面显示的额度）">⊞' + fn6(ctx) + "</span>" : "");
+      const desc = fn6(host) + " · " + fn6(model) + badges;
       const configured = p.byok1Configured && p.byok2Configured;
       const statusBadge = isActive
         ? '<span class="badge badge-info">使用中</span>'
@@ -612,6 +668,7 @@
       fn13("cfgAnthropicPath", config.BYOK1_ANTHROPIC_API_PATH || config.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", config.BYOK1_OPENAI_API_PATH || config.OPENAI_API_PATH || "");
       applyMaxTokensValue(config.MAX_TOKENS);
+      applyContextWindowValue(config.CONTEXT_WINDOW);
       fn13("cfgCompletionTimeoutMs", config.COMPLETION_TIMEOUT_MS || "12000");
       fn13("cfgHybridPort", config.HYBRID_PORT || "3006");
       fn13("cfgInferencePort", config.INFERENCE_PORT || "3001");
@@ -715,6 +772,7 @@
       OPENAI_REASONING_MODE: tmp02.BYOK1_OPENAI_REASONING_MODE || "",
       DEFAULT_MODEL: tmp02.BYOK1_MODEL,
       MAX_TOKENS: readMaxTokens(),
+      CONTEXT_WINDOW: readContextWindow(),
       COMPLETION_TIMEOUT_MS: (fn4("cfgCompletionTimeoutMs") || {}).value || "12000",
       MODEL_LIST_MODE: (fn4("cfgModelListMode") || {}).value || "replace",
       HYBRID_PORT: (fn4("cfgHybridPort") || {}).value || "3006",
@@ -1215,6 +1273,14 @@
         custom.value = tmp12.value;
       }
       syncMaxTokensUI();
+    } else if (tmp12.id === "cfgContextWindowPreset") {
+      const custom = fn4("cfgContextWindow");
+      if (tmp12.value === "custom" && custom && !custom.value) {
+        custom.value = "200000";
+      } else if (tmp12.value !== "custom" && custom) {
+        custom.value = tmp12.value;
+      }
+      syncContextWindowUI();
     } else if (tmp12.id === "cfgModelListMode") {
       // 该控件在「控制状态」Tab，不属于方案编辑器，走独立的立即落盘 + 热更新
       fn5("setModelListMode", {
@@ -1248,6 +1314,9 @@
     }
     if (tmp12 && tmp12.id === "cfgMaxTokens") {
       syncMaxTokensUI();
+    }
+    if (tmp12 && tmp12.id === "cfgContextWindow") {
+      syncContextWindowUI();
     }
   });
   window.addEventListener("message", arg0 => {
@@ -1393,7 +1462,7 @@
     'cfgByok3Host', 'cfgByok3Key', 'cfgByok3Model', 'cfgByok3ThinkingEffort', 'cfgByok3Protocol', 'cfgByok3ServiceTier', 'cfgByok3ReasoningMode',
     'cfgByok4Host', 'cfgByok4Key', 'cfgByok4Model', 'cfgByok4ThinkingEffort', 'cfgByok4Protocol', 'cfgByok4ServiceTier', 'cfgByok4ReasoningMode',
     'cfgHybridPort', 'cfgInferencePort', 'cfgAnthropicPath', 'cfgOpenaiPath',
-    'cfgMaxTokens', 'cfgMaxTokensPreset', 'cfgCompletionTimeoutMs'
+    'cfgMaxTokens', 'cfgMaxTokensPreset', 'cfgContextWindow', 'cfgContextWindowPreset', 'cfgCompletionTimeoutMs'
   ]);
 
   let autoSaveTimer = null;

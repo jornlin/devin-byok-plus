@@ -367,12 +367,64 @@ test('最大 Token 预设下拉 + 自定义', async (t) => {
     );
   });
 
-  await t.test('方案列表显示格式化后的 Token 值', () => {
+  await t.test('方案列表同时显示输出上限与上下文窗口', () => {
     const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
-    assert.ok(sidebarJs.includes('formatTokensShort(p.maxTokens)'), '列表项应显示该值');
+    assert.ok(sidebarJs.includes('formatTokensShort(p.maxTokens)'), '应显示输出上限');
+    assert.ok(sidebarJs.includes('formatContextShort(p.contextWindow)'), '应显示上下文窗口');
     assert.ok(sidebarJs.includes('profile-desc-tok'), '应有对应徽标样式');
     const css = readFileSync(join(projectRoot, 'resources/webviews/dist/sidebar.css'), 'utf-8');
     assert.ok(css.includes('.profile-desc-tok'), '构建产物应包含徽标样式');
+  });
+
+  await t.test('上下文窗口独立控件：预设 + 自定义', () => {
+    const mtu = require(join(projectRoot, 'src/services/maxTokens.js'));
+    assert.ok(configTab.includes('id="cfgContextWindowPreset"'), '应有上下文预设下拉');
+    assert.ok(configTab.includes('id="cfgContextWindow"'), '应有自定义输入框');
+
+    // 命中预设 → 选中并隐藏输入框
+    for (const p of mtu.CONTEXT_WINDOW_PRESETS) {
+      const html = renderSidebarHtmlWith({ tmp2: { CONTEXT_WINDOW: String(p.value) } });
+      const sel = html.match(/<select id="cfgContextWindowPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+      assert.ok(new RegExp(`value="${p.value}" selected`).test(sel), `${p.value} 应被选中`);
+      assert.ok(
+        /id="cfgContextWindow" class="hidden"/.test(html),
+        `${p.value} 命中预设时应隐藏输入框`
+      );
+    }
+
+    // 非预设（如用户填的 800000）→ 自定义
+    const custom = renderSidebarHtmlWith({ tmp2: { CONTEXT_WINDOW: '800000' } });
+    const csel = custom.match(/<select id="cfgContextWindowPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    assert.ok(/value="custom" selected/.test(csel));
+    assert.ok(/id="cfgContextWindow"[^>]*value="800000"/.test(custom));
+    assert.ok(custom.includes('Devin 将显示 800K 上下文'), '提示应用十进制口径');
+
+    // 缺省为 200K
+    const def = renderSidebarHtmlWith({ tmp2: {} });
+    const dsel = def.match(/<select id="cfgContextWindowPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    assert.ok(/value="200000" selected/.test(dsel));
+  });
+
+  await t.test('两个控件互相独立，不共用状态', () => {
+    // 曾把输出上限误当上下文写入 f18；此处确保 UI 层两者也不串
+    const html = renderSidebarHtmlWith({
+      tmp2: { MAX_TOKENS: '32768', CONTEXT_WINDOW: '1000000' },
+    });
+    const mtSel = html.match(/<select id="cfgMaxTokensPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    const cwSel = html.match(/<select id="cfgContextWindowPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    assert.ok(/value="32768" selected/.test(mtSel), '输出上限应为 32768');
+    assert.ok(/value="1000000" selected/.test(cwSel), '上下文窗口应为 1000000');
+
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    assert.ok(sidebarJs.includes('readContextWindow'), '应有独立的上下文读取函数');
+    assert.ok(
+      /CONTEXT_WINDOW: readContextWindow\(\)/.test(sidebarJs),
+      '收集配置时上下文应走自己的读取函数'
+    );
+    assert.ok(
+      sidebarJs.includes("'cfgContextWindowPreset'"),
+      '上下文预设下拉应加入自动保存白名单'
+    );
   });
 });
 

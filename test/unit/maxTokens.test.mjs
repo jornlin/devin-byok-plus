@@ -134,6 +134,126 @@ test('webview 侧的预设常量与格式化逻辑与本模块保持一致', () 
   );
 });
 
+test('formatContextWindow 用十进制口径（与厂商宣传一致）', () => {
+  // 上下文窗口宣传值是十进制（200K = 200000）；用 1024 制会显示成 195K，与认知不符。
+  // 而输出上限是 2 的幂（32768 = 32K），故两者用不同的格式化函数。
+  const cases = [
+    [128000, '128K'],
+    [200000, '200K'],
+    [256000, '256K'],
+    [512000, '512K'],
+    [1000000, '1M'],
+    [1048576, '1M'],
+    [800000, '800K'],
+    [1500000, '1.5M'],
+    [999, '999'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(mt.formatContextWindow(input), expected, `${input} 应显示为 ${expected}`);
+  }
+  // 同一个值，两种口径给出不同结果 —— 这正是需要两个函数的原因
+  assert.equal(mt.formatContextWindow(128000), '128K');
+  assert.equal(mt.formatTokens(128000), '125K');
+});
+
+test('formatContextWindow 对非法值返回空串', () => {
+  for (const v of [0, -1, null, undefined, '', 'abc']) {
+    assert.equal(mt.formatContextWindow(v), '');
+  }
+});
+
+test('sanitizeContextWindow 清洗与边界', () => {
+  assert.equal(mt.sanitizeContextWindow('200000'), 200000);
+  assert.equal(mt.sanitizeContextWindow(800000), 800000);
+  assert.equal(mt.sanitizeContextWindow('abc'), mt.DEFAULT_CONTEXT_WINDOW);
+  assert.equal(mt.sanitizeContextWindow(0), mt.DEFAULT_CONTEXT_WINDOW);
+  assert.equal(mt.sanitizeContextWindow(-1), mt.DEFAULT_CONTEXT_WINDOW);
+  assert.equal(mt.sanitizeContextWindow(99999999999), mt.MAX_CONTEXT_WINDOW);
+  assert.equal(mt.sanitizeContextWindow('bad', -1), -1);
+});
+
+test('上下文窗口预设：默认命中档位、含推荐标注、上限足够', () => {
+  const values = mt.CONTEXT_WINDOW_PRESETS.map((p) => p.value);
+  assert.deepEqual(values, [...values].sort((a, b) => a - b), '档位应升序');
+  assert.ok(values.includes(mt.DEFAULT_CONTEXT_WINDOW), '默认值应命中某档，否则一打开就是「自定义」');
+  const rec = mt.CONTEXT_WINDOW_PRESETS.filter((p) => p.label.includes('推荐'));
+  assert.equal(rec.length, 1);
+  assert.equal(rec[0].value, mt.DEFAULT_CONTEXT_WINDOW);
+  // 上下文窗口整体量级应高于输出上限（两者虽在 128K 附近有重叠，但典型值差一个数量级）
+  const ctxMax = Math.max(...values);
+  const outMax = Math.max(...mt.MAX_TOKENS_PRESETS.map((p) => p.value));
+  assert.ok(ctxMax > outMax * 4, '上下文窗口最大档应远高于输出上限最大档');
+  assert.ok(
+    mt.DEFAULT_CONTEXT_WINDOW > mt.DEFAULT_MAX_TOKENS * 4,
+    '默认上下文窗口应远大于默认输出上限，符合两者的实际量级关系'
+  );
+  // label 前缀与十进制格式化一致
+  for (const p of mt.CONTEXT_WINDOW_PRESETS) {
+    assert.ok(
+      p.label.startsWith(mt.formatContextWindow(p.value)),
+      `${p.value} 的 label 应以 ${mt.formatContextWindow(p.value)} 开头`
+    );
+  }
+});
+
+test('isPresetContextWindow 区分预设与自定义', () => {
+  for (const p of mt.CONTEXT_WINDOW_PRESETS) {
+    assert.equal(mt.isPresetContextWindow(p.value), true);
+  }
+  for (const v of [800000, 1, 'abc', null, 0, 32768]) {
+    assert.equal(mt.isPresetContextWindow(v), false, `${JSON.stringify(v)} 不应是预设`);
+  }
+});
+
+test('两个概念的默认值不相等，避免被当成同一个值', () => {
+  assert.notEqual(
+    mt.DEFAULT_MAX_TOKENS,
+    mt.DEFAULT_CONTEXT_WINDOW,
+    '输出上限与上下文窗口是独立概念，默认值不应相同'
+  );
+});
+
+test('webview 侧的上下文窗口常量与本模块一致', () => {
+  const sidebarJs = readFileSyncSafe('resources/webviews/sidebar.js');
+  const m = sidebarJs.match(/CONTEXT_WINDOW_PRESET_VALUES = \[([^\]]+)\]/);
+  assert.ok(m, 'sidebar.js 应定义 CONTEXT_WINDOW_PRESET_VALUES');
+  assert.deepEqual(
+    m[1].split(',').map((s) => Number.parseInt(s.trim(), 10)),
+    mt.CONTEXT_WINDOW_PRESETS.map((p) => p.value),
+    'webview 的上下文预设值必须与 maxTokens.js 一致'
+  );
+  assert.ok(
+    sidebarJs.includes('formatContextShort'),
+    'webview 应有十进制口径的上下文格式化函数'
+  );
+});
+
+test('profileStore 的上下文窗口往返', () => {
+  const ps = require('../../src/services/profileStore.js');
+  for (const v of ['128000', '200000', '1000000', '800000']) {
+    const p = ps.createDefaultProfile({ CONTEXT_WINDOW: v });
+    assert.equal(p.advanced.contextWindow, v, `profile 应捕获 ${v}`);
+    assert.equal(ps.projectToEnvConfig(p).CONTEXT_WINDOW, v, `应还原 ${v}`);
+  }
+  assert.equal(
+    ps.createDefaultProfile({ CONTEXT_WINDOW: 'abc' }).advanced.contextWindow,
+    String(mt.DEFAULT_CONTEXT_WINDOW)
+  );
+  // 老方案缺该字段
+  const legacy = ps.createDefaultProfile({ CONTEXT_WINDOW: '512000' });
+  delete legacy.advanced.contextWindow;
+  assert.equal(
+    ps.projectToEnvConfig(legacy).CONTEXT_WINDOW,
+    String(mt.DEFAULT_CONTEXT_WINDOW),
+    '老方案应回落默认值'
+  );
+  // 两个值互不干扰
+  const both = ps.createDefaultProfile({ MAX_TOKENS: '65536', CONTEXT_WINDOW: '1000000' });
+  const env = ps.projectToEnvConfig(both);
+  assert.equal(env.MAX_TOKENS, '65536');
+  assert.equal(env.CONTEXT_WINDOW, '1000000');
+});
+
 test('profileStore 用统一清洗，方案往返不丢值', () => {
   const ps = require('../../src/services/profileStore.js');
   for (const v of ['4096', '32768', '131072']) {

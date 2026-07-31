@@ -37,6 +37,84 @@ const MAX_TOKENS_PRESETS = [
 /** 超过此值时提示可能超出模型输出上限 */
 const SAFE_MAX_TOKENS_HINT_THRESHOLD = 65536;
 
+/* ──────────────────────────────────────────────────────────────
+ * 上下文窗口（CONTEXT_WINDOW）—— 与上面的输出上限是两件事
+ *
+ * 它只影响 Devin 界面：写入 ClientModelConfig.max_tokens(field 18)。
+ * 注意该字段名叫 max_tokens，但 Devin 的语义是**上下文窗口**：
+ *   - 模型卡片渲染为 `${format(maxTokens)} context`
+ *   - 对话框上下文进度条把它当 contextLimit（用量百分比的分母）
+ * 真正的输出上限在 ModelInfo.max_output_tokens(f13)，与
+ * ModelInfo.max_tokens(f4，同为上下文) 并列 —— 同名不同义，极易取错。
+ *
+ * 所以：MAX_TOKENS 发往上游 API 控制生成长度；CONTEXT_WINDOW 仅供 Devin 显示额度。
+ * ────────────────────────────────────────────────────────────── */
+
+/** 默认上下文窗口：取当前主流模型的常见值 */
+const DEFAULT_CONTEXT_WINDOW = 200000;
+
+/** 上下文窗口上限：给足以容纳未来模型 */
+const MAX_CONTEXT_WINDOW = 10000000;
+
+/** 上下文窗口预设档位（十进制口径，与厂商宣传口径一致） */
+const CONTEXT_WINDOW_PRESETS = [
+  { value: 128000, label: '128K · 128000' },
+  { value: 200000, label: '200K · 200000（推荐）' },
+  { value: 256000, label: '256K · 256000' },
+  { value: 512000, label: '512K · 512000' },
+  { value: 1000000, label: '1M · 1000000' },
+];
+
+/**
+ * 清洗为合法的上下文窗口整数。
+ * @param {*} value
+ * @param {number} [fallback]
+ * @returns {number}
+ */
+function sanitizeContextWindow(value, fallback = DEFAULT_CONTEXT_WINDOW) {
+  const n = Number.parseInt(String(value ?? '').trim(), 10);
+  if (!Number.isInteger(n) || n < MIN_MAX_TOKENS) {
+    return fallback;
+  }
+  return Math.min(n, MAX_CONTEXT_WINDOW);
+}
+
+/**
+ * 判断某值是否命中上下文窗口预设档位。
+ * @param {*} value
+ * @returns {boolean}
+ */
+function isPresetContextWindow(value) {
+  const n = sanitizeContextWindow(value, -1);
+  return CONTEXT_WINDOW_PRESETS.some((p) => p.value === n);
+}
+
+/**
+ * 上下文窗口的显示格式化 —— 固定用十进制口径。
+ * 厂商宣传的「200K 上下文」指 200000，用 1024 制会显示成 195K，与用户认知不符；
+ * 而输出上限（max_tokens）是 2 的幂（32768→32K），故两者用不同的格式化函数。
+ *   128000  → 128K
+ *   200000  → 200K
+ *   1000000 → 1M
+ *   1048576 → 1M（1024 制的整数也归到 1M）
+ * @param {*} value
+ * @returns {string}
+ */
+function formatContextWindow(value) {
+  const n = Number.parseInt(String(value ?? '').trim(), 10);
+  if (!Number.isInteger(n) || n <= 0) {
+    return '';
+  }
+  const trim = (x) => String(Number(x.toFixed(1))).replace(/\.0$/, '');
+  if (n >= 1000000) {
+    return trim(n / 1000000) + 'M';
+  }
+  if (n >= 1000) {
+    return trim(n / 1000) + 'K';
+  }
+  return String(n);
+}
+
 /**
  * 把 token 数格式化成紧凑可读的形式，用于列表/摘要等空间受限处。
  *   32768   → 32K
@@ -109,4 +187,11 @@ module.exports = {
   formatTokens,
   sanitizeMaxTokens,
   isPresetMaxTokens,
+  // 上下文窗口（仅影响 Devin 界面显示的额度）
+  DEFAULT_CONTEXT_WINDOW,
+  MAX_CONTEXT_WINDOW,
+  CONTEXT_WINDOW_PRESETS,
+  sanitizeContextWindow,
+  isPresetContextWindow,
+  formatContextWindow,
 };

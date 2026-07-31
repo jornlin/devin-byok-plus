@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const maxTokensUtil = require('../services/maxTokens');
 
 /**
  * 端口解析和验证
@@ -104,6 +105,14 @@ function getCompletionTimeoutMs(config) {
 function getModelListMode(config) {
   const raw = String(config?.MODEL_LIST_MODE || '').trim().toLowerCase();
   return ['inject', 'replace', 'off'].includes(raw) ? raw : 'replace';
+}
+
+/**
+ * 获取上下文窗口（写入模型条目的 f18，仅影响 Devin 界面显示的上下文额度）。
+ * 与 MAX_TOKENS（发往上游 API 的单次输出上限）是两个独立概念。
+ */
+function getContextWindow(config) {
+  return maxTokensUtil.sanitizeContextWindow(config?.CONTEXT_WINDOW);
 }
 
 /**
@@ -260,6 +269,7 @@ module.exports = {
   normalizeSystemPromptPathValue,
   getCompletionTimeoutMs,
   getModelListMode,
+  getContextWindow,
   getSystemPromptConfigPath,
   getResolvedSystemPromptPath,
   readEnvConfig,

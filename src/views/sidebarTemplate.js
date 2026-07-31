@@ -41,6 +41,18 @@ function renderSidebarHtml(ctx) {
     return opts.join('');
   };
 
+  // 上下文窗口预设下拉（写入模型条目 f18，仅影响 Devin 显示的额度）
+  const currentContextWindow = maxTokensUtil.sanitizeContextWindow(tmp2 && tmp2.CONTEXT_WINDOW);
+  const isCustomContextWindow = !maxTokensUtil.isPresetContextWindow(currentContextWindow);
+  const buildContextWindowPresetOptions = () => {
+    const opts = maxTokensUtil.CONTEXT_WINDOW_PRESETS.map(
+      (p) =>
+        `<option value="${p.value}"${!isCustomContextWindow && p.value === currentContextWindow ? ' selected' : ''}>${esc(p.label)}</option>`
+    );
+    opts.push(`<option value="custom"${isCustomContextWindow ? ' selected' : ''}>自定义…</option>`);
+    return opts.join('');
+  };
+
   // 模型列表接管模式 select 选项（回填当前值，默认 replace）
   const buildModelListModeOptions = (selected) => {
     const current = ['inject', 'replace', 'off'].includes(String(selected || '').toLowerCase())
@@ -272,6 +284,12 @@ function renderSidebarHtml(ctx) {
         : '当前 ' + maxTokensUtil.formatTokens(currentMaxTokens),
     maxTokensWarnClass:
       currentMaxTokens > maxTokensUtil.SAFE_MAX_TOKENS_HINT_THRESHOLD ? 'warn' : '',
+
+    contextWindow: String(currentContextWindow),
+    contextWindowPresetOptions: buildContextWindowPresetOptions(),
+    contextWindowCustomHidden: isCustomContextWindow ? '' : 'hidden',
+    contextWindowHint:
+      'Devin 将显示 ' + maxTokensUtil.formatContextWindow(currentContextWindow) + ' 上下文',
     completionTimeout: esc(tmp2.COMPLETION_TIMEOUT_MS || '12000'),
 
     // 颜色变量

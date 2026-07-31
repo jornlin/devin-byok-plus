@@ -154,6 +154,12 @@
             <input type="number" id="cfgMaxTokens" class="{{maxTokensCustomHidden}}" style="margin-top:6px" value="{{maxTokens}}" placeholder="32768" min="1" max="1048576">
             <div class="set-row-hint {{maxTokensWarnClass}}" id="cfgMaxTokensHint" style="margin-top:4px">{{maxTokensHint}}</div>
         </div>
+        <div class="fg">
+            <label title="仅影响 Devin 界面显示的上下文额度（模型卡片的 context 与对话框的上下文进度条）。不发往上游 API，与「最大 Token」是两个独立概念。">上下文窗口 <span class="hint">（仅影响 Devin 显示）</span></label>
+            <select id="cfgContextWindowPreset" title="选择常用档位，或选「自定义」手动填写">{{contextWindowPresetOptions}}</select>
+            <input type="number" id="cfgContextWindow" class="{{contextWindowCustomHidden}}" style="margin-top:6px" value="{{contextWindow}}" placeholder="200000" min="1" max="10000000">
+            <div class="set-row-hint" id="cfgContextWindowHint" style="margin-top:4px">{{contextWindowHint}}</div>
+        </div>
         <div class="fg" style="margin-bottom:0">
             <label>完成超时（毫秒）</label>
             <input type="number" id="cfgCompletionTimeoutMs" value="{{completionTimeout}}" placeholder="12000">

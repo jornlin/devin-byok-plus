@@ -28,6 +28,7 @@ import {
 function configureSlots(models) {
   setRuntimeConfig({
     maxTokens: 32768,
+    CONTEXT_WINDOW: 200000,
     MODEL_LIST_MODE: "inject",
     BYOK1_MODEL: models[1] || "",
     BYOK2_MODEL: models[2] || "",
@@ -105,12 +106,62 @@ test("replaceFields 保留未识别字段，只替换目标字段", () => {
   assert.equal(getField(fields, 2, 2).value.toString(), "sort", "未涉及的 field 2 必须保留");
 });
 
+test("f18 必须写上下文窗口而非输出上限（语义回归保护）", () => {
+  // field 18 名为 max_tokens，但 Devin 的语义是**上下文窗口**：
+  //   模型卡片渲染 `${format(maxTokens)} context`
+  //   对话框上下文进度条把它当 contextLimit（用量百分比的分母）
+  // 真正的输出上限在 ModelInfo.max_output_tokens(f13)。
+  // 曾误把 MAX_TOKENS（输出上限）写进 f18，导致填 800000 后界面显示 800k 上下文。
+  setRuntimeConfig({
+    maxTokens: 32768,        // 输出上限：不应出现在 f18
+    CONTEXT_WINDOW: 200000,  // 上下文窗口：应出现在 f18
+    MODEL_LIST_MODE: "replace",
+    BYOK1_MODEL: "claude-opus-4-8",
+    BYOK2_MODEL: "",
+    BYOK3_MODEL: "",
+    BYOK4_MODEL: ""
+  });
+
+  const { bytes } = modifyCascadeModelConfigData(Buffer.alloc(0), "replace");
+  const entry = getAllFields(parseFields(bytes), 1)[0].value;
+  const f18 = getField(parseFields(entry), 18, 0).value;
+
+  assert.equal(f18, 200000, "f18 应为上下文窗口 CONTEXT_WINDOW");
+  assert.notEqual(f18, 32768, "f18 不能是 MAX_TOKENS —— 那会让界面显示错误的上下文额度");
+});
+
+test("上下文窗口改动后 f18 随之变化（不受 maxTokens 影响）", () => {
+  const read = () => {
+    const { bytes } = modifyCascadeModelConfigData(Buffer.alloc(0), "replace");
+    const entry = getAllFields(parseFields(bytes), 1)[0].value;
+    return getField(parseFields(entry), 18, 0).value;
+  };
+
+  setRuntimeConfig({
+    maxTokens: 32768,
+    CONTEXT_WINDOW: 1000000,
+    BYOK1_MODEL: "claude-opus-4-8",
+    BYOK2_MODEL: "",
+    BYOK3_MODEL: "",
+    BYOK4_MODEL: ""
+  });
+  assert.equal(read(), 1000000, "改上下文窗口应生效");
+
+  // 只改输出上限，f18 不应变化
+  setRuntimeConfig({ maxTokens: 65536 });
+  assert.equal(read(), 1000000, "改 maxTokens 不应影响 f18");
+
+  // 非法上下文窗口回落默认值
+  setRuntimeConfig({ CONTEXT_WINDOW: "abc" });
+  assert.equal(read(), 200000, "非法值应回落 200000");
+});
+
 test("buildClientModelConfig 不写 disabled 与 disabled_reason", () => {
   const bytes = buildClientModelConfig({
     enumNo: 277,
     uid: "MODEL_CLAUDE_4_OPUS_BYOK",
     label: "claude-opus-4-8 (BYOK1)",
-    maxTokens: 32768
+    contextWindow: 200000
   });
   const fields = parseFields(bytes);
 
@@ -291,7 +342,7 @@ test("BYOK 条目带 provider 字段以显示厂商图标", () => {
     uid: "MODEL_CLAUDE_4_OPUS_BYOK",
     label: "Claude Opus 4.8",
     provider: 3,
-    maxTokens: 32768
+    contextWindow: 200000
   });
   assert.equal(getField(parseFields(bytes), 10, 0).value, 3, "provider(f10) 应写入");
 });
@@ -302,7 +353,7 @@ test("provider 为 UNSPECIFIED 时省略该字段（proto3 缺省）", () => {
     uid: "MODEL_CLAUDE_4_OPUS_BYOK",
     label: "Unknown Model",
     provider: 0,
-    maxTokens: 32768
+    contextWindow: 200000
   });
   assert.equal(getField(parseFields(bytes), 10), undefined, "UNSPECIFIED 应省略");
 });

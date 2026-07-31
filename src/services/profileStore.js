@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { sanitizeMaxTokens } = require('./maxTokens');
+const { sanitizeMaxTokens, sanitizeContextWindow } = require('./maxTokens');
 
 const PROFILES_FILE = 'profiles.json';
 
@@ -89,6 +89,7 @@ function createDefaultProfile(envConfig = {}) {
       anthropicPath: envConfig.ANTHROPIC_API_PATH || '/v1/messages',
       openaiPath: envConfig.OPENAI_API_PATH || '/v1/responses',
       maxTokens: String(sanitizeMaxTokens(envConfig.MAX_TOKENS)),
+      contextWindow: String(sanitizeContextWindow(envConfig.CONTEXT_WINDOW)),
       completionTimeout: envConfig.COMPLETION_TIMEOUT_MS || '12000',
       modelListMode: sanitizeModelListMode(envConfig.MODEL_LIST_MODE),
     },
@@ -243,6 +244,7 @@ function listProfiles(envConfig) {
         byok4ThinkingEffort: b4.thinkingEffort || '',
         // 方案列表显示单次输出上限，便于一眼区分不同方案的配置
         maxTokens: sanitizeMaxTokens((p.advanced || {}).maxTokens),
+        contextWindow: sanitizeContextWindow((p.advanced || {}).contextWindow),
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       };
@@ -415,6 +417,7 @@ function projectToEnvConfig(profile) {
     ANTHROPIC_API_PATH: adv.anthropicPath || '/v1/messages',
     OPENAI_API_PATH: adv.openaiPath || '/v1/responses',
     MAX_TOKENS: String(sanitizeMaxTokens(adv.maxTokens)),
+    CONTEXT_WINDOW: String(sanitizeContextWindow(adv.contextWindow)),
     COMPLETION_TIMEOUT_MS: adv.completionTimeout || '12000',
     MODEL_LIST_MODE: sanitizeModelListMode(adv.modelListMode),
 
