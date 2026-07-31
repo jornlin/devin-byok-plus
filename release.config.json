@@ -3,31 +3,27 @@
   "releaseDate": "2026-07-31",
   "changeType": "Added",
   "changes": [
-    "模型清单接管：新增 MODEL_LIST_MODE（replace 默认 / inject / off），在代理层改写 Devin 下发的模型清单，把已配置的 BYOK 槽位放回下拉框。Devin 服务端不再下发 MODEL_CLAUDE_4_*_BYOK 四个条目后槽位在 UI 上无法选中，属于「入口消失」而非转发能力损坏。拦截 SeatManagementService/GetUserStatus 与 ApiServerService/GetCascadeModelConfigs 两条路径，兼容 6 种响应封装组合；侧栏「控制状态 → 模型接管」可切换，即时热更新无需重启代理，异常均回落原样放行",
-    "上下文窗口（CONTEXT_WINDOW，默认 200000）：写入模型条目 f18，决定 Devin 模型卡片的 200K context 与对话框上下文进度条分母；提供 128K/200K（推荐）/256K/512K/1M 预设与自定义。与 MAX_TOKENS（发往上游的输出上限）是两个独立概念",
-    "最大 Token 预设档位：裸输入框改为下拉预设 + 自定义联动，六档 4K/8K/16K/32K（推荐）/64K/128K；命中预设时隐藏输入框，非预设值自动落到自定义并回填；提示行实时显示当前值，超过 64K 转为截断风险告警",
-    "注入条目显示输出上限：写入 ClientModelConfig.description(f27)，Devin 渲染为模型名下方副标题行（如「输出上限 32K · claude-opus-4-8」）。输出上限没有可用的原生展示字段——ModelInfo.max_output_tokens(f13) 不在 UI 字段映射 edt() 里，modelDimensions(f32) 只接受 COST 类维度",
-    "默认使用 Cascade（默认开启）：把 Devin 自身的 acp.preferredAgent 设为 Cascade 哨兵值 __cascade__，使新建会话默认用 Cascade。Devin Local 走 ACP 与独立 devin CLI，不经过本插件代理，其模型清单没有 BYOK 条目（显示 None selected）。走 VS Code 配置 API 写入（settings.json 是 JSONC），双前缀写 devin.acp 与 windsurf.acp；不覆盖用户已指定的其他 agent",
-    "方案列表显示 Token 值：每项在主机/模型后追加徽标区分 ↑32K（输出上限）与 ⊞200K（上下文窗口）",
-    "proto.js 新增字段重序列化原语 reserializeField / replaceFields，改写嵌套消息时保留未识别字段，避免吃掉上游新增字段",
-    "新增服务模块 maxTokens.js（档位定义与两种口径格式化）、preferredAgent.js（Cascade 偏好管理）、model-configs.js（清单改写）",
-    "测试总数从 244 增至 379：protobuf 往返保真、6 种响应封装组合、client_model_sorts 同步、登录态保留、label 唯一性、token 双口径格式化、Cascade 展示状态真值表、UI 排版与接线断言"
+    "模型列表接管：把配置好的 BYOK 槽位放回 Devin 的模型下拉框，并显示真实模型名（如 Claude Opus 4.8）。三种模式：只显示 BYOK 槽位（默认）/ 与官方模型共存 / 不接管",
+    "默认使用 Cascade：新建会话不再落到「Devin Local」——那个模式不经过本插件，模型框会显示 None selected",
+    "上下文窗口设置：控制 Devin 界面显示的上下文额度（200K context），可选 128K / 200K / 256K / 512K / 1M 或自定义",
+    "最大 Token 改为下拉选择：4K / 8K / 16K / 32K（推荐）/ 64K / 128K 六档预设，也可自定义",
+    "下拉框显示输出上限：模型名下方会标出「输出上限 32K」，选模型时不用再回插件里查",
+    "方案列表显示两个 Token 值：↑32K 是输出上限，⊞200K 是上下文窗口"
   ],
   "additionalChanges": {
     "Changed": [
-      "MODEL_LIST_MODE 默认值为 replace：非 Pro 账号下官方模型几乎全部 disabled（实测 193 条中 192 条为 Upgrade to Pro），替换模式更清爽且所见即所得；Pro 用户可手动切回 inject",
-      "控制状态页排版重构：原「代理控制」卡片五类异质内容平铺（主操作夹在配置项中间、端口占顶部两行、两个开关行结构不一致无法垂直对齐、提示被长文案压窄）。改为按功能分区——代理控制（主操作占满整行置顶 → 次级操作 → 偏好 → 端口折叠并显示实时摘要）+ 模型接管（模型列表模式与默认 Cascade 归为一处）；新增 .set-row 系列 CSS 组件统一设置行模式",
-      "MAX_TOKENS 默认值统一为 32768：profileStore 原为 '64000' 与 proxy 侧兜底不一致，新建方案会拿到可能触发截断的值；现统一走 sanitizeMaxTokens",
-      "README 从 529 行精简至 126 行：参考手册类内容迁出到新增的 docs/CONFIGURATION.md、docs/MODELS.md、docs/DEVELOPMENT.md，与 docs/ 重复的法律/打包/开发章节压成摘要 + 链接；新增 Telegram 群组二维码"
+      "模型列表默认改为「只显示 BYOK 槽位」——非 Pro 账号下官方模型几乎都不可用，列表更清爽",
+      "控制状态页重新排版：启动按钮移到最上方并占满整行，端口收进折叠区，新增「模型接管」分区",
+      "README 从 529 行精简到 126 行，环境变量等参考内容拆分到 docs/"
     ],
     "Fixed": [
-      "f18 取值错误导致上下文显示错误：注入条目时把 MAX_TOKENS（输出上限）写进 ClientModelConfig.max_tokens(f18)，导致最大 Token 设为 800000 后 Devin 显示「800k 上下文」。该字段虽名为 max_tokens，Devin 语义却是上下文窗口（模型卡片渲染 {f18} context、进度条当 contextLimit），真正的输出上限在 ModelInfo.max_output_tokens(f13)。现拆为两个独立配置并加语义回归断言",
-      "MODEL_LIST_MODE 经方案保存后丢失：profileStore 的 advanced 是封闭白名单，未列入字段在 webview → profileStore → .env 链路中被静默丢弃，导致选了「替换」并保存后 .env 仍是旧值；已补双向字段与清洗",
-      "模型清单响应可能因封装未识别而静默不生效：拦截逻辑原只解外层 gzip，未探测 Connect 5 字节 envelope，若上游用该封装则解析不到目标字段、静默原样放行（不崩不坏但功能永不生效）；现采用与 RegisterUser 一致的「探测后分支」写法",
-      "代理控制按钮重复渲染：sidebar.js 运行时渲染把「维护工具 / 仅保存配置」一并注入 proxyControlButtons，与模板静态按钮重复显示两份",
-      "「切换后需重启代理」文案错误：模型列表模式已实现 reloadRuntimeConfig 热更新，改为「即时生效」",
-      "修复 docs/ 内 6 处失效相对链接（CONTRIBUTING/DISCLAIMER/SECURITY 指向 LICENSE.txt、README.md、proxy-scripts/.env.example 时缺少 ../）",
-      ".vscodeignore 排除 resources/images/**：该目录仅供 README 展示，此前随 resources/** 被打进 VSIX 使包体积多出约 123KB"
+      "修复上下文显示错误：此前把「最大 Token」误当作上下文窗口发给 Devin，导致填 800000 后对话框显示「800k 上下文」",
+      "修复切换模型列表模式后不生效：保存时该设置会被方案系统丢弃",
+      "修复代理控制区「维护工具」按钮重复显示两个",
+      "修复「最大 Token」默认值不一致（新建方案会拿到 64000，可能导致生成被截断）",
+      "修正「切换后需重启代理」的错误提示——实际是即时生效",
+      "修复文档内 6 处失效链接",
+      "插件包不再包含 README 用的图片，体积减少约 123KB"
     ]
   },
   "breaking": false,
