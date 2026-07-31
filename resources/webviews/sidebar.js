@@ -347,7 +347,7 @@
       fn23(arg0, 4);
       fn13("cfgAnthropicPath", arg0.BYOK1_ANTHROPIC_API_PATH || arg0.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", arg0.BYOK1_OPENAI_API_PATH || arg0.OPENAI_API_PATH || "");
-      fn13("cfgMaxTokens", arg0.MAX_TOKENS || "64000");
+      applyMaxTokensValue(arg0.MAX_TOKENS);
       fn13("cfgModelListMode", ["inject", "replace", "off"].includes(String(arg0.MODEL_LIST_MODE || "").toLowerCase()) ? String(arg0.MODEL_LIST_MODE).toLowerCase() : "replace");
       fn13("cfgSysPromptOverride", arg0.SYSTEM_PROMPT_OVERRIDE === "true" ? "true" : "");
       fn13("cfgSysPromptPath", arg0.SYSTEM_PROMPT_PATH || "");
@@ -360,6 +360,78 @@
     }
     fn24c();
     fn20();
+  }
+  // 与 src/services/maxTokens.js 保持一致（webview 无法 require 扩展侧模块）
+  const MAX_TOKENS_PRESET_VALUES = [4096, 8192, 16384, 32768, 65536, 131072];
+  const MAX_TOKENS_WARN_THRESHOLD = 65536;
+  function formatTokensShort(value) {
+    const n = Number.parseInt(String(value == null ? "" : value).trim(), 10);
+    if (!Number.isInteger(n) || n <= 0) {
+      return "";
+    }
+    const pick = (base, unit, decBase) => {
+      const b = n / base;
+      if (Number.isInteger(b)) {
+        return String(b) + unit;
+      }
+      const d = n / decBase;
+      if (Number.isInteger(d)) {
+        return String(d) + unit;
+      }
+      return b.toFixed(1).replace(/\.0$/, "") + unit;
+    };
+    if (n >= 1000000) {
+      return pick(1048576, "M", 1000000);
+    }
+    if (n >= 1000) {
+      return pick(1024, "K", 1000);
+    }
+    return String(n);
+  }
+  // 读取当前生效的 max_tokens：选了「自定义」取输入框，否则取下拉值
+  function readMaxTokens() {
+    const preset = fn4("cfgMaxTokensPreset");
+    const custom = fn4("cfgMaxTokens");
+    if (preset && preset.value && preset.value !== "custom") {
+      return preset.value;
+    }
+    return (custom && custom.value) || "32768";
+  }
+  // 预设/自定义联动：选「自定义」才显示输入框；同步提示与超限告警
+  function syncMaxTokensUI() {
+    const preset = fn4("cfgMaxTokensPreset");
+    const custom = fn4("cfgMaxTokens");
+    const hint = fn4("cfgMaxTokensHint");
+    if (!preset || !custom) {
+      return;
+    }
+    const isCustom = preset.value === "custom";
+    custom.classList.toggle("hidden", !isCustom);
+    const effective = Number.parseInt(readMaxTokens(), 10) || 0;
+    if (hint) {
+      const pretty = formatTokensShort(effective);
+      if (effective > MAX_TOKENS_WARN_THRESHOLD) {
+        hint.textContent = "当前值 " + pretty + " 偏高，超出模型经网关的输出上限会导致生成被截断";
+        hint.classList.add("warn");
+      } else {
+        hint.textContent = pretty ? "当前 " + pretty : "";
+        hint.classList.remove("warn");
+      }
+    }
+  }
+  // 回填：命中预设则选中该档，否则切到「自定义」并填入实际值
+  function applyMaxTokensValue(value) {
+    const n = Number.parseInt(String(value == null ? "" : value).trim(), 10);
+    const effective = Number.isInteger(n) && n > 0 ? n : 32768;
+    const preset = fn4("cfgMaxTokensPreset");
+    const custom = fn4("cfgMaxTokens");
+    if (custom && document.activeElement !== custom) {
+      custom.value = String(effective);
+    }
+    if (preset && document.activeElement !== preset) {
+      preset.value = MAX_TOKENS_PRESET_VALUES.indexOf(effective) >= 0 ? String(effective) : "custom";
+    }
+    syncMaxTokensUI();
   }
   // 端口折叠区收起时，在标题右侧显示当前端口摘要，避免展开才能看到
   function fn24c() {
@@ -482,7 +554,10 @@
       if (isEditing && !isActive) cls.push("editing");
       const model = p.byok1Model || "未选择模型";
       const host = p.byok1Display || "";
-      const desc = fn6(host) + " · " + fn6(model);
+      // 单次输出上限：各方案常有差异，列在描述行便于一眼对比
+      const tok = formatTokensShort(p.maxTokens);
+      const desc =
+        fn6(host) + " · " + fn6(model) + (tok ? ' <span class="profile-desc-tok" title="单次输出上限 max_tokens">' + fn6(tok) + "</span>" : "");
       const configured = p.byok1Configured && p.byok2Configured;
       const statusBadge = isActive
         ? '<span class="badge badge-info">使用中</span>'
@@ -536,7 +611,7 @@
       fn23(config, 4);
       fn13("cfgAnthropicPath", config.BYOK1_ANTHROPIC_API_PATH || config.ANTHROPIC_API_PATH || "");
       fn13("cfgOpenaiPath", config.BYOK1_OPENAI_API_PATH || config.OPENAI_API_PATH || "");
-      fn13("cfgMaxTokens", config.MAX_TOKENS || "64000");
+      applyMaxTokensValue(config.MAX_TOKENS);
       fn13("cfgCompletionTimeoutMs", config.COMPLETION_TIMEOUT_MS || "12000");
       fn13("cfgHybridPort", config.HYBRID_PORT || "3006");
       fn13("cfgInferencePort", config.INFERENCE_PORT || "3001");
@@ -639,7 +714,7 @@
       OPENAI_SERVICE_TIER: tmp02.BYOK1_OPENAI_SERVICE_TIER || "",
       OPENAI_REASONING_MODE: tmp02.BYOK1_OPENAI_REASONING_MODE || "",
       DEFAULT_MODEL: tmp02.BYOK1_MODEL,
-      MAX_TOKENS: (fn4("cfgMaxTokens") || {}).value || "64000",
+      MAX_TOKENS: readMaxTokens(),
       COMPLETION_TIMEOUT_MS: (fn4("cfgCompletionTimeoutMs") || {}).value || "12000",
       MODEL_LIST_MODE: (fn4("cfgModelListMode") || {}).value || "replace",
       HYBRID_PORT: (fn4("cfgHybridPort") || {}).value || "3006",
@@ -1131,6 +1206,15 @@
       fn5("setPreferCascadeAgent", {
         value: tmp12.checked === true
       });
+    } else if (tmp12.id === "cfgMaxTokensPreset") {
+      // 从预设切到自定义时，把当前生效值填进输入框作为起点，避免出现空框
+      const custom = fn4("cfgMaxTokens");
+      if (tmp12.value === "custom" && custom && !custom.value) {
+        custom.value = "32768";
+      } else if (tmp12.value !== "custom" && custom) {
+        custom.value = tmp12.value;
+      }
+      syncMaxTokensUI();
     } else if (tmp12.id === "cfgModelListMode") {
       // 该控件在「控制状态」Tab，不属于方案编辑器，走独立的立即落盘 + 热更新
       fn5("setModelListMode", {
@@ -1161,6 +1245,9 @@
     }
     if (tmp12 && (tmp12.id === "cfgHybridPort" || tmp12.id === "cfgInferencePort")) {
       fn24c();
+    }
+    if (tmp12 && tmp12.id === "cfgMaxTokens") {
+      syncMaxTokensUI();
     }
   });
   window.addEventListener("message", arg0 => {
@@ -1306,7 +1393,7 @@
     'cfgByok3Host', 'cfgByok3Key', 'cfgByok3Model', 'cfgByok3ThinkingEffort', 'cfgByok3Protocol', 'cfgByok3ServiceTier', 'cfgByok3ReasoningMode',
     'cfgByok4Host', 'cfgByok4Key', 'cfgByok4Model', 'cfgByok4ThinkingEffort', 'cfgByok4Protocol', 'cfgByok4ServiceTier', 'cfgByok4ReasoningMode',
     'cfgHybridPort', 'cfgInferencePort', 'cfgAnthropicPath', 'cfgOpenaiPath',
-    'cfgMaxTokens', 'cfgCompletionTimeoutMs'
+    'cfgMaxTokens', 'cfgMaxTokensPreset', 'cfgCompletionTimeoutMs'
   ]);
 
   let autoSaveTimer = null;

@@ -948,6 +948,10 @@
   .profile-desc {
     @apply text-[9px] text-vsdesc mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap;
   }
+  /* 单次输出上限徽标：与主机/模型同行，用弱底色区分 */
+  .profile-desc-tok {
+    @apply ml-1 px-1 rounded bg-vsinput border border-vsborder text-[8px] align-middle;
+  }
 
   /* 已配置槽位摘要（弱化显示） */
   .profile-slots {

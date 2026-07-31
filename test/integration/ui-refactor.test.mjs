@@ -301,6 +301,81 @@ test('模型列表模式开关可见性', async (t) => {
   });
 });
 
+test('最大 Token 预设下拉 + 自定义', async (t) => {
+  const configTab = readFileSync(
+    join(projectRoot, 'src/views/templates/partials/config-tab.html'),
+    'utf-8'
+  );
+  const mt = require(join(projectRoot, 'src/services/maxTokens.js'));
+
+  await t.test('渲染为预设 select + 自定义输入框', () => {
+    assert.ok(configTab.includes('id="cfgMaxTokensPreset"'), '应有预设下拉');
+    assert.ok(configTab.includes('id="cfgMaxTokens"'), '应保留自定义输入框');
+    assert.ok(configTab.includes('id="cfgMaxTokensHint"'), '应有当前值/告警提示');
+  });
+
+  await t.test('命中预设时选中该档并隐藏自定义框', () => {
+    for (const p of mt.MAX_TOKENS_PRESETS) {
+      const html = renderSidebarHtmlWith({ tmp2: { MAX_TOKENS: String(p.value) } });
+      const sel = html.match(/<select id="cfgMaxTokensPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+      assert.ok(
+        new RegExp(`value="${p.value}" selected`).test(sel),
+        `${p.value} 应被选中`
+      );
+      assert.ok(
+        /id="cfgMaxTokens" class="hidden"/.test(html),
+        `${p.value} 命中预设时应隐藏自定义框`
+      );
+    }
+  });
+
+  await t.test('非预设值落到自定义并展开输入框', () => {
+    const html = renderSidebarHtmlWith({ tmp2: { MAX_TOKENS: '50000' } });
+    const sel = html.match(/<select id="cfgMaxTokensPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    assert.ok(/value="custom" selected/.test(sel), '应选中「自定义」');
+    assert.ok(!/id="cfgMaxTokens" class="hidden"/.test(html), '自定义框应可见');
+    assert.ok(/id="cfgMaxTokens"[^>]*value="50000"/.test(html), '应回填实际值');
+  });
+
+  await t.test('缺省为推荐值 32K', () => {
+    const html = renderSidebarHtmlWith({ tmp2: {} });
+    const sel = html.match(/<select id="cfgMaxTokensPreset"[^>]*>([\s\S]*?)<\/select>/)[1];
+    assert.ok(/value="32768" selected/.test(sel));
+    assert.ok(sel.includes('推荐'), '32K 档位应标注推荐');
+  });
+
+  await t.test('高于阈值时提示可能被截断', () => {
+    const high = renderSidebarHtmlWith({ tmp2: { MAX_TOKENS: '131072' } });
+    assert.ok(high.includes('偏高'), '应提示偏高');
+    assert.ok(/class="set-row-hint warn"/.test(high), '应带告警样式');
+    const safe = renderSidebarHtmlWith({ tmp2: { MAX_TOKENS: '32768' } });
+    assert.ok(!safe.includes('偏高'), '推荐值不应告警');
+  });
+
+  await t.test('webview 侧有联动与读取逻辑', () => {
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    assert.ok(sidebarJs.includes('syncMaxTokensUI'), '应有预设/自定义联动');
+    assert.ok(sidebarJs.includes('readMaxTokens'), '应有生效值读取');
+    assert.ok(sidebarJs.includes('applyMaxTokensValue'), '应有回填逻辑');
+    assert.ok(
+      /MAX_TOKENS: readMaxTokens\(\)/.test(sidebarJs),
+      '收集配置时应走 readMaxTokens（选预设时取下拉值）'
+    );
+    assert.ok(
+      sidebarJs.includes("'cfgMaxTokensPreset'"),
+      '预设下拉应加入自动保存白名单，否则切档不落盘'
+    );
+  });
+
+  await t.test('方案列表显示格式化后的 Token 值', () => {
+    const sidebarJs = readFileSync(join(projectRoot, 'resources/webviews/sidebar.js'), 'utf-8');
+    assert.ok(sidebarJs.includes('formatTokensShort(p.maxTokens)'), '列表项应显示该值');
+    assert.ok(sidebarJs.includes('profile-desc-tok'), '应有对应徽标样式');
+    const css = readFileSync(join(projectRoot, 'resources/webviews/dist/sidebar.css'), 'utf-8');
+    assert.ok(css.includes('.profile-desc-tok'), '构建产物应包含徽标样式');
+  });
+});
+
 test('控制状态页排版与交互', async (t) => {
   const html = renderHtml();
   const controlTab = readFileSync(

@@ -149,8 +149,10 @@
             <input type="text" id="cfgOpenaiPath" value="{{openaiPath}}" placeholder="/v1/responses">
         </div>
         <div class="fg">
-            <label>最大 Token</label>
-            <input type="number" id="cfgMaxTokens" value="{{maxTokens}}" placeholder="64000">
+            <label title="单次回复的输出上限（对应 API 的 max_tokens），不是上下文窗口。设得高于模型经网关的实际输出上限会导致生成中途被截断（工具参数 JSON 不完整、重试无效）。">最大 Token <span class="hint">（单次输出上限）</span></label>
+            <select id="cfgMaxTokensPreset" title="选择常用档位，或选「自定义」手动填写">{{maxTokensPresetOptions}}</select>
+            <input type="number" id="cfgMaxTokens" class="{{maxTokensCustomHidden}}" style="margin-top:6px" value="{{maxTokens}}" placeholder="32768" min="1" max="1048576">
+            <div class="set-row-hint {{maxTokensWarnClass}}" id="cfgMaxTokensHint" style="margin-top:4px">{{maxTokensHint}}</div>
         </div>
         <div class="fg" style="margin-bottom:0">
             <label>完成超时（毫秒）</label>

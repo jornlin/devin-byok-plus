@@ -220,7 +220,7 @@ OPENAI_THINKING_ENABLED=
 ```
 HYBRID_PORT=3006
 INFERENCE_PORT=3001
-MAX_TOKENS=64000
+MAX_TOKENS=32768              # 单次输出上限（非上下文窗口）
 COMPLETION_TIMEOUT_MS=12000
 MODEL_LIST_MODE=replace       # 模型列表接管：replace / inject / off
 SYSTEM_PROMPT_OVERRIDE=
@@ -229,6 +229,18 @@ PROXY_DEVICE_ID=              # 由扩展注入子进程
 PROXY_CLIENT_VERSION=
 ADMIN_TOKEN=                  # 可选；设置后 /api/config POST 需 Bearer 鉴权
 ```
+
+### 最大 Token（`MAX_TOKENS`）
+
+对应 API 请求体的 `max_tokens`，即**单次回复的输出上限**，不是上下文窗口。
+主流模型的输出上限在 8K–128K 量级，远小于其 200K–1M 的上下文窗口。
+
+设得高于模型经网关的实际输出上限会导致生成被**确定性截断**——表现为工具参数
+JSON 不完整、SSE 中途断流、重试同一请求无效。故默认取 32768（推荐值）。
+
+侧栏「配置连接 → 高级路由配置 → 最大 Token」提供 4K / 8K / 16K / 32K（推荐）/
+64K / 128K 六档预设，也可选「自定义…」手动填写任意值；超过 64K 时会给出提示。
+当前值会显示在方案列表每一项上（如 `32K`），便于对比不同方案。
 
 ### 模型列表接管（`MODEL_LIST_MODE`）
 

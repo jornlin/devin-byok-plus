@@ -5,6 +5,7 @@
 
 const { esc, formatUptime } = require('./sidebarHtml');
 const thinkingEffort = require('../services/thinkingEffort');
+const maxTokensUtil = require('../services/maxTokens');
 const { renderSidebar } = require('./templates');
 
 /**
@@ -28,7 +29,19 @@ function renderSidebarHtml(ctx) {
   const byok3Configured = !!(tmp33a || tmp33b);
   const byok4Configured = !!(tmp33e || tmp33f);
 
-  // 模型列表接管模式 select 选项（回填当前值，默认 inject）
+  // 最大 Token 预设下拉：命中档位则选中，否则落到「自定义」并展开输入框
+  const currentMaxTokens = maxTokensUtil.sanitizeMaxTokens(tmp2 && tmp2.MAX_TOKENS);
+  const isCustomMaxTokens = !maxTokensUtil.isPresetMaxTokens(currentMaxTokens);
+  const buildMaxTokensPresetOptions = () => {
+    const opts = maxTokensUtil.MAX_TOKENS_PRESETS.map(
+      (p) =>
+        `<option value="${p.value}"${!isCustomMaxTokens && p.value === currentMaxTokens ? ' selected' : ''}>${esc(p.label)}</option>`
+    );
+    opts.push(`<option value="custom"${isCustomMaxTokens ? ' selected' : ''}>自定义…</option>`);
+    return opts.join('');
+  };
+
+  // 模型列表接管模式 select 选项（回填当前值，默认 replace）
   const buildModelListModeOptions = (selected) => {
     const current = ['inject', 'replace', 'off'].includes(String(selected || '').toLowerCase())
       ? String(selected).toLowerCase()
@@ -247,7 +260,18 @@ function renderSidebarHtml(ctx) {
     // 高级路由配置
     anthropicPath: esc(tmp2.ANTHROPIC_API_PATH || '/v1/messages'),
     openaiPath: esc(tmp2.OPENAI_API_PATH || '/v1/responses'),
-    maxTokens: esc(tmp2.MAX_TOKENS || '64000'),
+    maxTokens: String(currentMaxTokens),
+    maxTokensPresetOptions: buildMaxTokensPresetOptions(),
+    // 选了预设时隐藏自定义输入框
+    maxTokensCustomHidden: isCustomMaxTokens ? '' : 'hidden',
+    maxTokensHint:
+      currentMaxTokens > maxTokensUtil.SAFE_MAX_TOKENS_HINT_THRESHOLD
+        ? '当前值 ' +
+          maxTokensUtil.formatTokens(currentMaxTokens) +
+          ' 偏高，超出模型经网关的输出上限会导致生成被截断'
+        : '当前 ' + maxTokensUtil.formatTokens(currentMaxTokens),
+    maxTokensWarnClass:
+      currentMaxTokens > maxTokensUtil.SAFE_MAX_TOKENS_HINT_THRESHOLD ? 'warn' : '',
     completionTimeout: esc(tmp2.COMPLETION_TIMEOUT_MS || '12000'),
 
     // 颜色变量
