@@ -96,6 +96,17 @@ function getCompletionTimeoutMs(config) {
 }
 
 /**
+ * 获取模型列表接管模式
+ * inject  = 保留官方模型 + 追加 BYOK 槽位条目（默认）
+ * replace = 只显示 BYOK 槽位条目
+ * off     = 不接管，原样放行上游清单
+ */
+function getModelListMode(config) {
+  const raw = String(config?.MODEL_LIST_MODE || '').trim().toLowerCase();
+  return ['inject', 'replace', 'off'].includes(raw) ? raw : 'inject';
+}
+
+/**
  * 获取系统提示词配置路径
  */
 function getSystemPromptConfigPath(config) {
@@ -248,6 +259,7 @@ module.exports = {
   stripProtocol,
   normalizeSystemPromptPathValue,
   getCompletionTimeoutMs,
+  getModelListMode,
   getSystemPromptConfigPath,
   getResolvedSystemPromptPath,
   readEnvConfig,

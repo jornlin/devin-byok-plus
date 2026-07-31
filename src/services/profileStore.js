@@ -30,6 +30,16 @@ function sanitizeProtocol(value) {
   return PROTOCOL_VALUES.includes(normalized) ? normalized : '';
 }
 
+const MODEL_LIST_MODE_VALUES = ['inject', 'replace', 'off'];
+
+/**
+ * 模型列表接管模式清洗。缺省/非法值回落 inject（保留官方模型 + 追加 BYOK 槽位）。
+ */
+function sanitizeModelListMode(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return MODEL_LIST_MODE_VALUES.includes(normalized) ? normalized : 'inject';
+}
+
 function createDefaultProfile(envConfig = {}) {
   return {
     id: generateProfileId(),
@@ -79,6 +89,7 @@ function createDefaultProfile(envConfig = {}) {
       openaiPath: envConfig.OPENAI_API_PATH || '/v1/responses',
       maxTokens: envConfig.MAX_TOKENS || '64000',
       completionTimeout: envConfig.COMPLETION_TIMEOUT_MS || '12000',
+      modelListMode: sanitizeModelListMode(envConfig.MODEL_LIST_MODE),
     },
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -402,6 +413,7 @@ function projectToEnvConfig(profile) {
     OPENAI_API_PATH: adv.openaiPath || '/v1/responses',
     MAX_TOKENS: adv.maxTokens || '64000',
     COMPLETION_TIMEOUT_MS: adv.completionTimeout || '12000',
+    MODEL_LIST_MODE: sanitizeModelListMode(adv.modelListMode),
 
     HYBRID_PORT: adv.hybridPort || '',
     INFERENCE_PORT: adv.inferencePort || '',
@@ -422,6 +434,7 @@ module.exports = {
   ensureProfilesExist,
   createDefaultProfile,
   sanitizeProtocol,
+  sanitizeModelListMode,
   detectModelProtocol,
   resolveEffectiveProtocol,
 };
