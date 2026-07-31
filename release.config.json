@@ -1,28 +1,33 @@
 {
-  "version": "2.4.0",
-  "releaseDate": "2026-07-26",
+  "version": "2.5.0",
+  "releaseDate": "2026-07-31",
   "changeType": "Added",
   "changes": [
-    "移植上游 v2.6.1 GPT-5.6 推理全链路（扩展至 4 个 BYOK 槽位）：新增 OPENAI_REASONING_MODE（standard/pro，仅 GPT-5.6 系列，写入 Responses API 的 reasoning.mode）；gpt-5.6* 模型保留 max 思考强度（其他 GPT 仍映射为 xhigh）；OPENAI_SERVICE_TIER 新增 priority 取值（OpenAI 官方优先处理）。UI 各槽位新增「推理模式」下拉，仅在模型为 gpt-5.6 时显示，支持载入/保存/自动保存与热重载",
-    "移植上游 v2.6.0 转发工具过滤：通过 TOOL_ALLOWLIST / TOOL_DENYLIST / TOOL_ALLOW_PREFIXES / TOOL_DENY_PREFIXES（及 BYOK_ 前缀别名）按精确名或前缀通配过滤转发给上游的工具，deny 优先于 allow，Anthropic/OpenAI 两路均接入",
-    "移植上游 v2.6.0 网关能力缓存磁盘持久化：通过 GATEWAY_CAPABILITY_CACHE_PATH 将网关能力探测结果落盘并跨进程/重启复用（懒加载 + 写时持久化），扩展进程启动时自动注入缓存路径至用户配置目录",
-    "移植上游 v2.6.0 SSE 帧拆分健壮化：splitSseFrames 同时支持 LF 与 CRLF 分隔，避免混合换行下的帧解析错误；日志脱敏 sanitizeLogBody 加固（结构化 secret + 裸 token，Bearer 收紧匹配）",
-    "移植上游 v2.5.0 缓冲响应头重构：非流式缓冲响应剥离逐跳头（transfer-encoding/connection 等）与陈旧 content-length 后写入真实字节长度，避免残留 chunked 框架头",
-    "系统页新增「插件信息」卡片：显示当前安装版本与 Git 远端地址",
-    "状态栏 API 余额显示（PR #2）：显示当前激活方案的 API 余额（NewAPI/One-API），每 2 分钟自动刷新、切换方案时刷新、支持点击手动刷新；方案新增可选字段 balanceToken 与 userId，仅当配置其一时才显示并查询，未配置用户零网络请求",
-    "GitHub 版本更新提示：新增 VersionChecker 服务每小时轮询 GitHub Releases API，侧栏顶部显示更新提示条，支持一键跳转 Release 页与忽略当前版本，版本信息持久化到 globalState",
-    "新增回归单测：缓冲响应头、SSE 帧拆分、日志脱敏、工具过滤、网关缓存持久化、GPT-5.6 推理（Responses max/pro、Chat 回退省略 mode、运行时槽位感知净化）、诊断 priority tier，共 9 项"
+    "模型清单接管：新增 MODEL_LIST_MODE（replace 默认 / inject / off），在代理层改写 Devin 下发的模型清单，把已配置的 BYOK 槽位放回下拉框。Devin 服务端不再下发 MODEL_CLAUDE_4_*_BYOK 四个条目后槽位在 UI 上无法选中，属于「入口消失」而非转发能力损坏。拦截 SeatManagementService/GetUserStatus 与 ApiServerService/GetCascadeModelConfigs 两条路径，兼容 6 种响应封装组合；侧栏「控制状态 → 模型接管」可切换，即时热更新无需重启代理，异常均回落原样放行",
+    "上下文窗口（CONTEXT_WINDOW，默认 200000）：写入模型条目 f18，决定 Devin 模型卡片的 200K context 与对话框上下文进度条分母；提供 128K/200K（推荐）/256K/512K/1M 预设与自定义。与 MAX_TOKENS（发往上游的输出上限）是两个独立概念",
+    "最大 Token 预设档位：裸输入框改为下拉预设 + 自定义联动，六档 4K/8K/16K/32K（推荐）/64K/128K；命中预设时隐藏输入框，非预设值自动落到自定义并回填；提示行实时显示当前值，超过 64K 转为截断风险告警",
+    "注入条目显示输出上限：写入 ClientModelConfig.description(f27)，Devin 渲染为模型名下方副标题行（如「输出上限 32K · claude-opus-4-8」）。输出上限没有可用的原生展示字段——ModelInfo.max_output_tokens(f13) 不在 UI 字段映射 edt() 里，modelDimensions(f32) 只接受 COST 类维度",
+    "默认使用 Cascade（默认开启）：把 Devin 自身的 acp.preferredAgent 设为 Cascade 哨兵值 __cascade__，使新建会话默认用 Cascade。Devin Local 走 ACP 与独立 devin CLI，不经过本插件代理，其模型清单没有 BYOK 条目（显示 None selected）。走 VS Code 配置 API 写入（settings.json 是 JSONC），双前缀写 devin.acp 与 windsurf.acp；不覆盖用户已指定的其他 agent",
+    "方案列表显示 Token 值：每项在主机/模型后追加徽标区分 ↑32K（输出上限）与 ⊞200K（上下文窗口）",
+    "proto.js 新增字段重序列化原语 reserializeField / replaceFields，改写嵌套消息时保留未识别字段，避免吃掉上游新增字段",
+    "新增服务模块 maxTokens.js（档位定义与两种口径格式化）、preferredAgent.js（Cascade 偏好管理）、model-configs.js（清单改写）",
+    "测试总数从 244 增至 379：protobuf 往返保真、6 种响应封装组合、client_model_sorts 同步、登录态保留、label 唯一性、token 双口径格式化、Cascade 展示状态真值表、UI 排版与接线断言"
   ],
   "additionalChanges": {
     "Changed": [
-      "DeepSeek/Kimi Anthropic 路径自动修正（PR #4）：按 hostname 自动把 /v1/messages 修正为 /anthropic，增强 404 回退到 chat/completions 与 provider 回退逻辑",
-      "配置方案列表去掉固定 max-height，避免下方空白浪费"
+      "MODEL_LIST_MODE 默认值为 replace：非 Pro 账号下官方模型几乎全部 disabled（实测 193 条中 192 条为 Upgrade to Pro），替换模式更清爽且所见即所得；Pro 用户可手动切回 inject",
+      "控制状态页排版重构：原「代理控制」卡片五类异质内容平铺（主操作夹在配置项中间、端口占顶部两行、两个开关行结构不一致无法垂直对齐、提示被长文案压窄）。改为按功能分区——代理控制（主操作占满整行置顶 → 次级操作 → 偏好 → 端口折叠并显示实时摘要）+ 模型接管（模型列表模式与默认 Cascade 归为一处）；新增 .set-row 系列 CSS 组件统一设置行模式",
+      "MAX_TOKENS 默认值统一为 32768：profileStore 原为 '64000' 与 proxy 侧兜底不一致，新建方案会拿到可能触发截断的值；现统一走 sanitizeMaxTokens",
+      "README 从 529 行精简至 126 行：参考手册类内容迁出到新增的 docs/CONFIGURATION.md、docs/MODELS.md、docs/DEVELOPMENT.md，与 docs/ 重复的法律/打包/开发章节压成摘要 + 链接；新增 Telegram 群组二维码"
     ],
     "Fixed": [
-      "补齐 reasoning.mode 写侧白名单清洗（BYOK1-4，取值限 standard/pro），与既有 THINKING_EFFORT 清洗对齐，避免非法值落盘 .env",
-      "诊断面板 service_tier 白名单从仅 fast 扩为 fast/priority，修复对 priority tier 的错误显示",
-      "修复 API 余额查询鉴权：改用 Bearer balanceToken + New-Api-User userId 格式，恢复可用端点并修正 _parseBalance 解析逻辑（经实测诊断确认）",
-      "PR #2/#4 合并后运行时加固：fetchApiBalance 包裹 try/catch 消除 unhandled rejection 风险，清理 resolveEffectiveProvider 死分支，新增 pr-fixes.test.mjs（28 用例）"
+      "f18 取值错误导致上下文显示错误：注入条目时把 MAX_TOKENS（输出上限）写进 ClientModelConfig.max_tokens(f18)，导致最大 Token 设为 800000 后 Devin 显示「800k 上下文」。该字段虽名为 max_tokens，Devin 语义却是上下文窗口（模型卡片渲染 {f18} context、进度条当 contextLimit），真正的输出上限在 ModelInfo.max_output_tokens(f13)。现拆为两个独立配置并加语义回归断言",
+      "MODEL_LIST_MODE 经方案保存后丢失：profileStore 的 advanced 是封闭白名单，未列入字段在 webview → profileStore → .env 链路中被静默丢弃，导致选了「替换」并保存后 .env 仍是旧值；已补双向字段与清洗",
+      "模型清单响应可能因封装未识别而静默不生效：拦截逻辑原只解外层 gzip，未探测 Connect 5 字节 envelope，若上游用该封装则解析不到目标字段、静默原样放行（不崩不坏但功能永不生效）；现采用与 RegisterUser 一致的「探测后分支」写法",
+      "代理控制按钮重复渲染：sidebar.js 运行时渲染把「维护工具 / 仅保存配置」一并注入 proxyControlButtons，与模板静态按钮重复显示两份",
+      "「切换后需重启代理」文案错误：模型列表模式已实现 reloadRuntimeConfig 热更新，改为「即时生效」",
+      "修复 docs/ 内 6 处失效相对链接（CONTRIBUTING/DISCLAIMER/SECURITY 指向 LICENSE.txt、README.md、proxy-scripts/.env.example 时缺少 ../）",
+      ".vscodeignore 排除 resources/images/**：该目录仅供 README 展示，此前随 resources/** 被打进 VSIX 使包体积多出约 123KB"
     ]
   },
   "breaking": false,

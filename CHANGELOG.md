@@ -5,6 +5,41 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.5.0] - 2026-07-31
+
+恢复 BYOK 槽位在 Devin 模型下拉框中的入口。Devin 服务端不再下发
+`MODEL_CLAUDE_4_*_BYOK` 四个条目后，槽位在 UI 上无法选中（转发能力本身完好，
+属于「入口消失」）；本版在代理层接管模型清单，把已配置的槽位放回下拉框。
+
+### Added
+- **模型清单接管**：新增 `MODEL_LIST_MODE`（`replace` 默认 / `inject` / `off`），在代理层改写 Devin 下发的模型清单，把已配置的 BYOK 槽位放回下拉框。`replace` 只显示 BYOK 槽位并展示由模型名生成的干净条目名（如 `Claude Opus 4.8`）；`inject` 保留官方模型并追加槽位，供 Pro 账号与官方额度共存；`off` 原样放行。拦截 `SeatManagementService/GetUserStatus`（UI 实际数据源）与 `ApiServerService/GetCascadeModelConfigs` 两条路径，兼容裸 protobuf / 外层 gzip / Connect 5 字节 envelope 共 6 种响应封装组合。侧栏「控制状态 → 模型接管」可切换，即时热更新无需重启代理；任何解析异常均回落为原样放行。
+- **上下文窗口（`CONTEXT_WINDOW`）**：新增独立配置项（默认 200000），写入模型条目的 `ClientModelConfig.max_tokens`(f18)，决定 Devin 模型卡片的 `200K context` 与对话框上下文进度条的分母。提供 128K / 200K（推荐）/ 256K / 512K / 1M 预设与自定义。与 `MAX_TOKENS`（发往上游的输出上限）是两个独立概念。
+- **最大 Token 预设档位**：原裸输入框改为下拉预设 + 自定义联动，六档 4K / 8K / 16K / 32K（推荐）/ 64K / 128K，末项「自定义…」；命中预设时隐藏输入框，非预设值自动落到自定义并回填。提示行实时显示当前值，超过 64K 时转为截断风险告警。档位按真实输出上限区间设置（主流模型 8K–128K），避免与上下文窗口量级混淆。
+- **注入条目显示输出上限**：写入 `ClientModelConfig.description`(f27)，Devin 会渲染为模型名下方的副标题行（如 `输出上限 32K · claude-opus-4-8`）。输出上限没有可用的原生展示字段——`ModelInfo.max_output_tokens`(f13) 不在 UI 的字段映射 `edt()` 里，`modelDimensions`(f32) 只接受 COST 类维度。`replace` 模式副标题附带真实模型名便于确认实际请求的模型。
+- **默认使用 Cascade**：新增开关（默认开启），把 Devin 自身的 `acp.preferredAgent` 设为 Cascade 哨兵值 `__cascade__`，使新建会话默认用 Cascade。Devin 新建会话默认选中「Devin Local」，而该模式走 ACP 协议与独立的 `devin` CLI（直连 `app.devin.ai`），**不经过本插件代理**，其模型清单里没有 BYOK 条目（显示 `None selected`）。走 VS Code 配置 API 写入（`settings.json` 是 JSONC，直接 `JSON.parse` 会抛异常），同时写 `devin.acp` 与 `windsurf.acp` 两个前缀；不覆盖用户已手动指定的其他 agent，用户显式关闭后不再自动开启。
+- **方案列表显示 Token 值**：每项在主机/模型后追加徽标区分两个值——`↑32K`（输出上限）、`⊞200K`（上下文窗口）。
+- 新增 `proto.js` 字段重序列化原语 `reserializeField` / `replaceFields`，用于「解析 → 局部修改 → 重新序列化」时保留未识别字段，避免改写嵌套消息时吃掉上游新增字段。
+- 新增服务模块 `maxTokens.js`（档位定义与两种口径的格式化）、`preferredAgent.js`（Cascade 偏好管理）、`model-configs.js`（清单改写）。
+
+### Changed
+- **`MODEL_LIST_MODE` 默认值为 `replace`**：非 Pro 账号下官方模型几乎全部处于 disabled 状态（实测 193 条中 192 条为「Upgrade to Pro」），替换模式列表更清爽且所见即所得。需与官方额度共存的 Pro 用户可手动切回 `inject`。
+- **控制状态页排版重构**：原「代理控制」卡片把五类异质内容平铺在一起（主操作夹在配置项中间、端口占据顶部两整行、两个开关行结构不一致导致无法垂直对齐、提示文字挤在控件右侧被长文案压窄）。改为按功能分区：代理控制（主操作占满整行置顶 → 次级操作 → 偏好 → 端口折叠并在标题右侧显示实时摘要）+ 模型接管（模型列表模式与默认 Cascade 归为一处，两者都是「让 BYOK 槽位在 Devin 中可选」）。新增 `.set-row` 系列 CSS 组件统一设置行模式，替换散落的内联样式。
+- **`MAX_TOKENS` 默认值统一为 32768**：`profileStore` 原为 `'64000'`，与 proxy 侧兜底不一致；新建方案会拿到可能触发截断的值。现统一走 `sanitizeMaxTokens`，`.env.example` 与文档同步。
+- **README 精简重构**：从 529 行压到 126 行，只保留首次阅读所需内容。参考手册类内容迁出到新增的 `docs/CONFIGURATION.md`（全部环境变量、Token 与上下文、清单接管、默认 Cascade）、`docs/MODELS.md`（4 槽位、协议识别、思考强度对照表）、`docs/DEVELOPMENT.md`（项目结构、构建流程、架构要点）；与 `docs/` 重复的法律、打包、开发章节压成摘要 + 链接。新增 Telegram 群组二维码。
+
+### Fixed
+- **f18 取值错误导致上下文显示错误**：注入条目时把 `MAX_TOKENS`（单次输出上限）写进了 `ClientModelConfig.max_tokens`(f18)，导致把最大 Token 设为 800000 后 Devin 对话框显示「800k 上下文」。该字段虽名为 max_tokens，Devin 的语义却是**上下文窗口**（模型卡片渲染 `{f18} context`，进度条把它当 `contextLimit`），真正的输出上限在 `ModelInfo.max_output_tokens`(f13)——同名不同义。现拆为 `MAX_TOKENS` 与 `CONTEXT_WINDOW` 两个独立配置，并加语义回归断言。
+- **`MODEL_LIST_MODE` 经方案保存后丢失**：`profileStore` 的 `advanced` 是封闭白名单，未列入的字段在「webview → profileStore → .env」链路中被静默丢弃，导致在下拉框选了「替换」并保存后 `.env` 仍是旧值。已补双向字段与清洗，并加方案往返回归测试。
+- **模型清单响应可能因封装未识别而静默不生效**：拦截逻辑原只解外层 gzip，未探测 Connect 5 字节 envelope；若上游用该封装则解析不到目标字段、静默原样放行（不崩不坏但功能永不生效）。现采用与 `RegisterUser` 一致的「探测后分支」写法，覆盖 6 种封装组合。
+- **代理控制按钮重复渲染**：`sidebar.js` 的运行时渲染会把「维护工具 / 仅保存配置」一并注入 `proxyControlButtons`，与模板中的静态按钮重复显示两份；现只渲染主操作按钮。
+- **「切换后需重启代理」文案错误**：模型列表模式已实现 `reloadRuntimeConfig` 热更新，无需重启，文案改为「即时生效」。
+- 修复 `docs/` 内 6 处失效相对链接（`CONTRIBUTING` / `DISCLAIMER` / `SECURITY` 指向 `LICENSE.txt`、`README.md`、`proxy-scripts/.env.example` 时缺少 `../`）。
+- `.vscodeignore` 排除 `resources/images/**`：该目录仅供 README 展示，此前随 `resources/**` 被打进 VSIX，使包体积多出约 123KB。
+
+### 测试
+- 测试总数从 244 增至 379。新增覆盖：protobuf 往返保真与未识别字段保留、6 种响应封装组合、`client_model_sorts` 同步（唯一展示驱动，漏同步则条目在 UI 上完全不可见）、登录态字段保留、label 唯一性与去重、两种口径的 token 格式化、Cascade 偏好的展示状态真值表、UI 排版与接线断言。
+- 关键回归保护：f18 必须等于 `CONTEXT_WINDOW` 且不等于 `MAX_TOKENS`、webview 侧复制常量与扩展侧模块的一致性、`MAX_TOKENS` 默认值须与 proxy 侧兜底一致。
+
 ## [2.4.0] - 2026-07-26
 
 移植上游 v2.5.0 / v2.6.0 / v2.6.1 三个 release 的能力，并全部适配到 fork 的 4 个 BYOK 槽位。
