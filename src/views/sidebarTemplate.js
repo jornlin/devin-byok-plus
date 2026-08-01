@@ -348,9 +348,13 @@ function renderSidebarHtml(ctx) {
     // 日志内容
     logContent: tmp36,
 
+    // 余额显示开关：编辑器卡片初始为隐藏状态，打开方案时由 showProfileEditor
+    // 用该方案的真实值水合，故首屏一律给「关闭 + 收起」这个安全默认。
+    balanceEnabledChecked: '',
+    balanceFieldsHidden: 'hidden',
+
     // 插件信息卡片
     pluginVersion: esc(ctx.pluginVersion || 'unknown'),
-    pluginGitRemote: esc(ctx.pluginGitRemote || '未配置'),
     pluginRepoUrl: esc(ctx.pluginRepoUrl || 'https://github.com/jornlin/devin-byok-plus'),
   };
 
