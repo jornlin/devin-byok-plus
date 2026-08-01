@@ -24,13 +24,28 @@
             <label>方案名称</label>
             <input type="text" id="cfgProfileName" placeholder="方案名称" autocomplete="off">
         </div>
-        <div class="fg">
-            <label title="NewAPI/One-API 的登录令牌，用于查询余额。与 API Key 不同，这是你登录控制台后获得的 Token。">访问令牌 <span class="hint">（查余额用，可选）</span></label>
-            <input type="password" id="cfgBalanceToken" placeholder="NewAPI 登录令牌（用于 /api/user/self 余额查询）" autocomplete="off">
-        </div>
-        <div class="fg">
-            <label title="NewAPI/One-API 的用户数字 ID，配合 API Key 查询余额（Authorization: Bearer apiKey + New-Api-User: userId）">用户 ID <span class="hint">（查余额用，可选）</span></label>
-            <input type="text" id="cfgUserId" placeholder="例如 562" autocomplete="off">
+        <!-- 余额显示：默认关闭，开启后才展开凭据输入框并发起查询 -->
+        <div class="sec">
+            <div class="set-row" style="padding-top:0">
+                <div class="set-row-main">
+                    <span class="set-row-label" title="开启后在状态栏显示该方案的账户余额，每 2 分钟自动刷新，点击可手动刷新。关闭时完全不发起余额请求，状态栏也不显示。">显示 API 余额</span>
+                    <span class="set-row-hint">NewAPI / One-API 类网关可用，关闭时不发起任何请求</span>
+                </div>
+                <div class="set-row-ctl">
+                    <label class="tog"><input type="checkbox" id="cfgBalanceEnabled" {{balanceEnabledChecked}}><span></span></label>
+                </div>
+            </div>
+            <div id="balanceFieldsBody" class="{{balanceFieldsHidden}}" style="padding-top:8px">
+                <div class="fg">
+                    <label title="NewAPI/One-API 的登录访问令牌（控制台「个人设置 → 访问令牌」），不是调用模型用的 API Key。查询 /api/user/self 需要它。">访问令牌 <span class="hint">（推荐填写）</span></label>
+                    <input type="password" id="cfgBalanceToken" placeholder="NewAPI 访问令牌（个人设置里生成）" autocomplete="off">
+                </div>
+                <div class="fg" style="margin-bottom:0">
+                    <label title="NewAPI/One-API 的用户数字 ID，作为 New-Api-User 请求头随访问令牌一起发送。多数 NewAPI 版本要求两者同时提供。">用户 ID <span class="hint">（配合访问令牌）</span></label>
+                    <input type="text" id="cfgUserId" placeholder="例如 562" autocomplete="off">
+                </div>
+                <div class="set-row-hint" style="margin-top:6px">NewAPI 通常要求「访问令牌 + 用户 ID」同时提供；两项留空时只尝试通用计费端点，多数网关不支持。余额取自 BYOK #1 的网关地址与 Key。</div>
+            </div>
         </div>
         <div class="byok-grid">
     <!-- BYOK #1 配置卡片 -->

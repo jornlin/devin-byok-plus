@@ -646,15 +646,28 @@
   // 当前编辑中的 profile 状态
   let currentEditingProfile = null;
 
-  function showProfileEditor(profileId, profileName, isActive, config, balanceToken, userId) {
+  // 余额凭据输入块跟随开关显隐。关闭时只折叠、不清空已填的值，
+  // 这样用户临时关掉再打开不用重新粘贴令牌。
+  function syncBalanceFieldsUI() {
+    const toggle = fn4("cfgBalanceEnabled");
+    const body = fn4("balanceFieldsBody");
+    if (!body) {
+      return;
+    }
+    body.classList.toggle("hidden", !(toggle && toggle.checked));
+  }
+
+  function showProfileEditor(profileId, profileName, isActive, config, balanceToken, userId, balanceEnabled) {
     currentEditingProfile = { profileId, profileName, isActive };
     const card = fn4("profileEditorCard");
     const nameInput = fn4("cfgProfileName");
     const badge = fn4("profileEditorBadge");
     if (card) card.classList.remove("hidden");
     if (nameInput) nameInput.value = profileName || "";
+    fn13("cfgBalanceEnabled", balanceEnabled === true);
     fn13("cfgBalanceToken", balanceToken || "");
     fn13("cfgUserId", userId || "");
+    syncBalanceFieldsUI();
     if (badge) {
       badge.textContent = isActive ? "使用中" : "未启用";
       badge.className = isActive ? "badge badge-info" : "badge badge-warn";
@@ -1091,6 +1104,7 @@
       fn5("saveConfig", {
         config: fn27(),
         profileName: nameInput ? nameInput.value.trim() : "",
+        balanceEnabled: fn4("cfgBalanceEnabled")?.checked === true,
         balanceToken: (fn4("cfgBalanceToken")?.value || "").trim(),
         userId: (fn4("cfgUserId")?.value || "").trim(),
         silent: false
@@ -1275,7 +1289,11 @@
     if (!tmp12) {
       return;
     }
-    if (tmp12.id === "cfgAutoStartProxy") {
+    if (tmp12.id === "cfgBalanceEnabled") {
+      // 只切显隐；真正落盘在「保存」时随 saveConfig 一起提交，
+      // 与编辑器里其它字段保持一致的「改完再保存」语义。
+      syncBalanceFieldsUI();
+    } else if (tmp12.id === "cfgAutoStartProxy") {
       fn5("setAutoStartProxy", {
         value: tmp12.checked === true
       });
@@ -1349,7 +1367,7 @@
     } else if (tmp12.type === "profileList") {
       renderProfileList(tmp12);
     } else if (tmp12.type === "openProfileEditor") {
-      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken, tmp12.userId);
+      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken, tmp12.userId, tmp12.balanceEnabled);
     } else if (tmp12.type === "actionState" && tmp12.section) {
       fn7(tmp12.section, tmp12.state === "error" ? "error" : "success", tmp12.message || "完成");
     } else if (tmp12.type === "modelList") {

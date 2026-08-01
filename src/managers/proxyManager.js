@@ -1147,14 +1147,16 @@ class ProxyManager {
       const profileStore = require('../services/profileStore');
       const envConfig = this.readEnvConfig();
       const profile = profileStore.getActiveProfile(envConfig);
-      const balanceToken = (profile?.balanceToken || '').trim();
-      const userId = (profile?.userId || '').trim();
-      // 配置即显示：仅当激活方案配置了余额查询凭据（访问令牌或用户 ID）时才显示余额栏并发起查询。
-      // 未配置的用户完全看不到余额栏，也不会产生任何网络请求。
-      if (!balanceToken && !userId) {
+      // 开关优先：只有激活方案显式开启「显示 API 余额」时才显示状态栏并发起查询。
+      // 关闭时隐藏状态栏、拆掉轮询定时器，完全不产生网络请求（也不读凭据）。
+      if (profile?.balanceEnabled !== true) {
+        this.stopBalanceTimer();
         this.balanceStatusBar.hide();
         return;
       }
+      const balanceToken = this._sanitizeHeaderValue(profile?.balanceToken);
+      const userId = this._sanitizeHeaderValue(profile?.userId);
+      this.ensureBalanceTimer();
       this.balanceStatusBar.show();
       this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
       const host = ((profile?.byok1?.host) || envConfig.BYOK1_OPENAI_API_HOST || envConfig.BYOK1_ANTHROPIC_API_HOST || envConfig.OPENAI_API_HOST || envConfig.ANTHROPIC_API_HOST || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -1234,6 +1236,24 @@ class ProxyManager {
       } catch (_) { /* 状态栏不可用时静默忽略 */ }
     }
   }
+  /**
+   * 清洗将要写入 HTTP 请求头的用户输入值。
+   * 从控制台复制访问令牌时常带上换行/制表符，直接塞进 header 会让 Node
+   * 抛 ERR_INVALID_CHAR —— 那是同步抛错，会掀掉整轮查询而不是降级到下一个端点。
+   * 逐字符剥掉 C0 控制字符与 DEL，顺带阻断 header 注入。
+   */
+  _sanitizeHeaderValue(value) {
+    const raw = String(value == null ? '' : value);
+    let out = '';
+    for (const ch of raw) {
+      const code = ch.codePointAt(0);
+      if (code <= 0x1f || code === 0x7f) {
+        continue;
+      }
+      out += ch;
+    }
+    return out.trim();
+  }
   _parseBalance(json) {
     if (!json || typeof json !== 'object') return null;
     // NewAPI /api/user/self: {"success":true,"data":{"quota":5000000,...}}
@@ -1253,8 +1273,17 @@ class ProxyManager {
     if (typeof json.data?.quota === 'number' && json.data.quota > 0) return json.data.quota / 500000;
     return null;
   }
+  /**
+   * 只触发一次查询；轮询定时器由 fetchApiBalance 按开关状态自行装卸，
+   * 避免「先 fetch 关掉定时器、再无条件 setInterval 装回来」的顺序错误。
+   */
   startBalanceTimer() {
     this.fetchApiBalance();
+  }
+  ensureBalanceTimer() {
+    if (this.balanceTimer) {
+      return;
+    }
     this.balanceTimer = setInterval(() => this.fetchApiBalance(), 2 * 60 * 1000);
   }
   stopBalanceTimer() {

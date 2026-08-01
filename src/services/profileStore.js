@@ -42,11 +42,15 @@ function sanitizeModelListMode(value) {
 }
 
 function createDefaultProfile(envConfig = {}) {
+  const balanceToken = envConfig.BYOK1_BALANCE_TOKEN || '';
+  const userId = envConfig.BYOK1_USER_ID || '';
   return {
     id: generateProfileId(),
     name: '方案 1',
-    balanceToken: envConfig.BYOK1_BALANCE_TOKEN || '',
-    userId: envConfig.BYOK1_USER_ID || '',
+    // 余额显示默认关闭；仅当从 env 迁移出了余额凭据时才视为已开启
+    balanceEnabled: !!(balanceToken || userId),
+    balanceToken,
+    userId,
     byok1: {
       host: envConfig.BYOK1_ANTHROPIC_API_HOST || '',
       key: envConfig.BYOK1_ANTHROPIC_API_KEY || '',
@@ -148,6 +152,15 @@ function normalizeProfile(profile) {
   }
   if (profile.balanceToken === undefined) profile.balanceToken = '';
   if (profile.userId === undefined) profile.userId = '';
+  // 旧方案没有 balanceEnabled 字段：已填过凭据的视为开启，保持升级后行为不变；
+  // 从未填过的保持关闭（新默认）。
+  if (profile.balanceEnabled === undefined) {
+    profile.balanceEnabled = !!(
+      String(profile.balanceToken || '').trim() || String(profile.userId || '').trim()
+    );
+  } else {
+    profile.balanceEnabled = profile.balanceEnabled === true;
+  }
   profile.byok1 = normalizeSlot(profile.byok1);
   profile.byok2 = normalizeSlot(profile.byok2);
   profile.byok3 = normalizeSlot(profile.byok3);
