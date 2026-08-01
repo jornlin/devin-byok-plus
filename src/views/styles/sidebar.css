@@ -605,6 +605,41 @@
   .plugin-info-row code {
     @apply text-vsfg font-mono text-[10px] leading-snug break-all;
   }
+  .plugin-info-value {
+    @apply flex items-center gap-1.5 flex-wrap;
+  }
+  /* 可点击的仓库地址 */
+  .plugin-info-link {
+    @apply text-vslink font-mono text-[10px] leading-snug break-all cursor-pointer;
+    @apply underline decoration-dotted underline-offset-2;
+  }
+  .plugin-info-link:hover {
+    @apply text-vsinputfg;
+    text-decoration-style: solid;
+  }
+  /* 版本号后面的「可更新 vX.Y.Z」徽标，点击直达 GitHub */
+  .plugin-update-tag {
+    @apply inline-flex items-center px-1.5 py-0.5 rounded cursor-pointer;
+    @apply text-[9px] font-bold leading-none whitespace-nowrap;
+    background: color-mix(in srgb, var(--vscode-button-background, #0d9488) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-button-background, #0d9488) 45%, transparent);
+    color: var(--vscode-textLink-foreground, #4ec9b0);
+  }
+  .plugin-update-tag:hover {
+    background: color-mix(in srgb, var(--vscode-button-background, #0d9488) 38%, transparent);
+  }
+  .plugin-update-tag.hidden {
+    display: none;
+  }
+  .plugin-info-actions {
+    @apply flex gap-1.5 flex-wrap mt-2;
+  }
+  .plugin-update-hint {
+    @apply mt-2 text-vsdesc text-[10px] leading-snug;
+  }
+  .plugin-update-hint.hidden {
+    display: none;
+  }
 
   .guide-body {
     @apply flex flex-col gap-2 text-vsdesc text-[10px] leading-relaxed;

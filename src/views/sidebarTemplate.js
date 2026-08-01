@@ -351,6 +351,7 @@ function renderSidebarHtml(ctx) {
     // 插件信息卡片
     pluginVersion: esc(ctx.pluginVersion || 'unknown'),
     pluginGitRemote: esc(ctx.pluginGitRemote || '未配置'),
+    pluginRepoUrl: esc(ctx.pluginRepoUrl || 'https://github.com/jornlin/devin-byok-plus'),
   };
 
   // 使用模板加载器渲染

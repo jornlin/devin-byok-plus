@@ -90,6 +90,11 @@ class SidebarProvider {
     this.editingProfileId = null;
     this.proxyManager = tmp1;
     this.versionChecker = versionChecker;
+    if (this.versionChecker) {
+      // 后台定时检查（含激活时那一次）结束后主动推给侧栏，
+      // 否则用户要等下一次 getStatus 才能看到新版本提示
+      this.versionChecker.onDidChange = () => this.postVersionUpdate();
+    }
     this.proxyManager.onLog((arg0) => {
       this.logLines.push(arg0);
       if (this.logLines.length > 200) {
@@ -210,11 +215,11 @@ class SidebarProvider {
       versionUpdate: this.versionChecker ? this.versionChecker.getUpdateInfo() : null,
     });
   }
-  postVersionUpdate() {
+  postVersionUpdate(overrides) {
     if (!this.view || !this.versionChecker) return;
     this.view.webview.postMessage({
       type: 'versionUpdate',
-      versionUpdate: this.versionChecker.getUpdateInfo(),
+      versionUpdate: { ...this.versionChecker.getUpdateInfo(), ...overrides },
     });
   }
   /**
@@ -2145,8 +2150,17 @@ class SidebarProvider {
       }
       case 'checkVersionUpdate': {
         if (this.versionChecker) {
-          await this.versionChecker.checkForUpdates();
+          // force=true：用户手动点按钮时跳过 1 小时节流，否则点了没反应
+          this.postVersionUpdate({ checking: true });
+          const info = await this.versionChecker.checkForUpdates(true);
           this.postVersionUpdate();
+          if (info.error) {
+            await vscode.window.showWarningMessage(`检查更新失败：${info.error}`);
+          } else if (!info.isNewer) {
+            await vscode.window.showInformationMessage(
+              `已是最新版本 v${info.currentVersion}`
+            );
+          }
         }
         break;
       }
@@ -2154,6 +2168,14 @@ class SidebarProvider {
         const url = tmp02.url || (this.versionChecker && this.versionChecker.getUpdateInfo().releaseUrl);
         if (url) {
           await vscode.env.openExternal(vscode.Uri.parse(url));
+        }
+        break;
+      }
+      case 'openExternalUrl': {
+        const raw = typeof tmp02.url === 'string' ? tmp02.url.trim() : '';
+        // 只放行 http(s)，避免 webview 传入 file:/command: 等协议
+        if (/^https?:\/\//i.test(raw)) {
+          await vscode.env.openExternal(vscode.Uri.parse(raw));
         }
         break;
       }
@@ -2299,6 +2321,7 @@ class SidebarProvider {
       tmp36,
       pluginVersion: this.getInstalledVersion(),
       pluginGitRemote: this.getGitRemoteUrl(),
+      pluginRepoUrl: this.getRepoHomepageUrl(),
     });
   }
   getExtensionPackageJson() {
@@ -2332,6 +2355,39 @@ class SidebarProvider {
     }
     return '';
   }
+  /**
+   * 可在浏览器打开的仓库主页。
+   * git 远端可能是 git@github.com:owner/repo.git 这类不能直接打开的形式，
+   * 统一归一化成 https://github.com/owner/repo。
+   */
+  getRepoHomepageUrl() {
+    const fallback = this.versionChecker?.getRepoUrl?.() || 'https://github.com/jornlin/devin-byok-plus';
+    const candidates = [this.getExtensionPackageJson().homepage, this.getGitRemoteUrl()];
+
+    for (const raw of candidates) {
+      if (typeof raw !== 'string' || !raw.trim()) continue;
+      const normalized = this.normalizeGitUrl(raw.trim());
+      if (normalized) return normalized;
+    }
+    return fallback;
+  }
+
+  normalizeGitUrl(url) {
+    let out = url
+      .replace(/^git\+/, '')
+      .replace(/^ssh:\/\/git@/, 'https://')
+      .replace(/^git:\/\//, 'https://');
+    // scp 形式：git@host:owner/repo(.git)
+    const scp = out.match(/^[\w.-]+@([\w.-]+):(.+)$/);
+    if (scp) {
+      out = `https://${scp[1]}/${scp[2]}`;
+    }
+    // ssh.github.com 是 SSH-over-443 的入口，网页版要用 github.com
+    out = out.replace(/^https:\/\/ssh\.github\.com\//, 'https://github.com/');
+    out = out.replace(/\.git$/, '').replace(/\/+$/, '');
+    return /^https?:\/\/.+\/.+/i.test(out) ? out : '';
+  }
+
   getGitRemoteUrl() {
     const tmp02 = this.findGitRoot(this.context.extensionPath);
     if (tmp02) {

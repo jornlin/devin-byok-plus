@@ -1210,6 +1210,26 @@
       tmp1 = "";
       fn7("patch", "busy", "正在切回自动检测...");
       fn5("clearExtJsPath");
+    } else if (tmp32 === "checkVersionUpdate") {
+      renderPluginVersionInfo({ ...(lastVersionInfo || {}), checking: true });
+      fn5("checkVersionUpdate");
+    } else if (tmp32 === "openRepoUrl") {
+      const repoUrl =
+        (lastVersionInfo && lastVersionInfo.repoUrl) ||
+        (fn4("pluginRepoLink") && fn4("pluginRepoLink").textContent.trim());
+      if (repoUrl) {
+        fn5("openExternalUrl", { url: repoUrl });
+      }
+    } else if (tmp32 === "openReleaseUrl") {
+      // 有新版本就跳该 Release，否则跳 releases 列表页
+      fn5("openReleaseUrl", {
+        url:
+          (lastVersionInfo &&
+            (lastVersionInfo.isNewer
+              ? lastVersionInfo.releaseUrl
+              : lastVersionInfo.releasesUrl)) ||
+          undefined
+      });
     } else if (tmp32 === "reloadIdeWindow") {
       fn5("reloadIdeWindow");
     } else if (tmp32 === "newWindow") {
@@ -1395,12 +1415,14 @@
       tmp02.innerHTML += "<div class=\"log-line" + tmp13 + "\">" + fn6(tmp12.line) + "</div>";
       tmp02.scrollTop = tmp02.scrollHeight;
     } else if (tmp12.type === "versionUpdate" || (tmp12.type === "status" && tmp12.versionUpdate)) {
-      const updateInfo = tmp12.versionUpdate || tmp12.versionUpdate;
+      const updateInfo = tmp12.versionUpdate;
       if (updateInfo && updateInfo.hasUpdate) {
         showVersionUpdateBanner(updateInfo);
       } else {
         hideVersionUpdateBanner();
       }
+      // 顶部横幅可被「忽略」，但插件信息卡片始终反映真实版本状态
+      renderPluginVersionInfo(updateInfo);
     }
   });
   
@@ -1418,6 +1440,63 @@
     const banner = fn4("versionUpdateBanner");
     if (banner) {
       banner.classList.add("hidden");
+    }
+  }
+
+  // 最近一次已知的版本信息，供「下载最新版 / 前往仓库」按钮取 URL
+  let lastVersionInfo = null;
+
+  function renderPluginVersionInfo(info) {
+    if (info) {
+      lastVersionInfo = info;
+    }
+    const tag = fn4("pluginUpdateTag");
+    const badge = fn4("pluginVersionBadge");
+    const hint = fn4("pluginUpdateHint");
+    const btn = fn4("btnCheckUpdate");
+    const repoLink = fn4("pluginRepoLink");
+
+    if (repoLink && info && info.repoUrl) {
+      repoLink.textContent = info.repoUrl;
+    }
+
+    if (btn) {
+      const busy = !!(info && info.checking);
+      btn.disabled = busy;
+      btn.textContent = busy ? "检查中..." : "检查更新";
+    }
+
+    if (!info) return;
+
+    // 版本号后面的「可更新」提示：只要远端更新就显示，与横幅的「忽略」状态无关
+    if (tag) {
+      if (info.isNewer && info.latestVersion) {
+        tag.textContent = "可更新 v" + info.latestVersion;
+        tag.classList.remove("hidden");
+      } else {
+        tag.classList.add("hidden");
+      }
+    }
+
+    if (badge) {
+      badge.classList.toggle("badge-warn", !!info.isNewer);
+      badge.classList.toggle("badge-ok", !info.isNewer);
+    }
+
+    if (hint) {
+      if (info.error) {
+        hint.textContent = "检查更新失败：" + info.error;
+        hint.classList.remove("hidden");
+      } else if (info.isNewer) {
+        hint.textContent =
+          "已发布 v" + info.latestVersion + "，点击「下载最新版」前往 GitHub 下载 .vsix 安装包";
+        hint.classList.remove("hidden");
+      } else if (info.latestVersion) {
+        hint.textContent = "已是最新版本";
+        hint.classList.remove("hidden");
+      } else {
+        hint.classList.add("hidden");
+      }
     }
   }
   
@@ -1587,6 +1666,17 @@
   updateTabBadges();
 
   // 快捷键支持：Cmd/Ctrl + 1/2/3 切换标签页
+  // role="button" 的链接/徽标需要键盘可达（Enter / Space 等同点击）
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const target = e.target && e.target.closest
+      ? e.target.closest('[data-ws-action][role="button"]')
+      : null;
+    if (!target) return;
+    e.preventDefault();
+    target.click();
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey) {
       if (e.key === "1") {

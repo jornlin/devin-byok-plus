@@ -2,12 +2,39 @@
 <div class="card" style="margin-bottom:12px">
     <div class="card-head between">
         <span>插件信息</span>
-        <span class="badge badge-ok">v{{pluginVersion}}</span>
+        <span class="badge badge-ok" id="pluginVersionBadge">v{{pluginVersion}}</span>
     </div>
     <div class="plugin-info">
-        <div class="plugin-info-row"><b>当前安装版本</b><code id="pluginInstalledVersion">v{{pluginVersion}}</code></div>
-        <div class="plugin-info-row"><b>Git 远端地址</b><code id="pluginGitRemote">{{pluginGitRemote}}</code></div>
+        <div class="plugin-info-row">
+            <b>当前安装版本</b>
+            <div class="plugin-info-value">
+                <code id="pluginInstalledVersion">v{{pluginVersion}}</code>
+                <!-- 有新版本时由 sidebar.js 填充"可更新 vX.Y.Z"徽标 -->
+                <span id="pluginUpdateTag" class="plugin-update-tag hidden"
+                      data-ws-action="openReleaseUrl" role="button" tabindex="0"
+                      title="前往 GitHub 下载新版本"></span>
+            </div>
+        </div>
+        <div class="plugin-info-row">
+            <b>代码仓库</b>
+            <div class="plugin-info-value">
+                <a class="plugin-info-link" id="pluginRepoLink"
+                   data-ws-action="openRepoUrl" role="button" tabindex="0"
+                   title="在浏览器中打开仓库">{{pluginRepoUrl}}</a>
+            </div>
+        </div>
+        <div class="plugin-info-row">
+            <b>Git 远端地址</b>
+            <code id="pluginGitRemote">{{pluginGitRemote}}</code>
+        </div>
     </div>
+    <div class="plugin-info-actions">
+        <button type="button" class="btn btn-s sm" data-ws-action="checkVersionUpdate"
+                id="btnCheckUpdate">检查更新</button>
+        <button type="button" class="btn btn-s sm" data-ws-action="openRepoUrl">前往仓库</button>
+        <button type="button" class="btn btn-s sm" data-ws-action="openReleaseUrl">下载最新版</button>
+    </div>
+    <div id="pluginUpdateHint" class="plugin-update-hint hidden"></div>
 </div>
 <div class="card" style="margin-bottom:12px">
     <div class="card-head between">
