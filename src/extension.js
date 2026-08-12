@@ -107,7 +107,7 @@ function activate(context) {
     }),
     vscode.commands.registerCommand('devin-byok-plus.reloadWorkbench', () => reloadWorkbenchWindow()),
     vscode.commands.registerCommand('devin-byok-plus.refreshBalance', () => {
-      proxyManager.fetchApiBalance();
+      proxyManager.fetchApiBalance(true); // 强制刷新，跳过缓存
     })
   );
 

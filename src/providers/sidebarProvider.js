@@ -132,20 +132,35 @@ class SidebarProvider {
       localResourceRoots: [this.context.extensionUri],
     };
     tmp02.webview.options = tmp1;
-    try {
-      tmp02.webview.html = this.getHtml();
-    } catch (tmp03) {
-      const tmp12 = tmp03 instanceof Error ? tmp03.stack || tmp03.message : String(tmp03);
-      this.logLines.push('侧栏加载失败: ' + tmp12);
-      if (this.logLines.length > 200) {
-        this.logLines = this.logLines.slice(-100);
+    
+    // 延迟加载，避免首次启动时 Webview 未就绪
+    const loadWebview = (retryCount = 0) => {
+      try {
+        tmp02.webview.html = this.getHtml();
+      } catch (tmp03) {
+        const tmp12 = tmp03 instanceof Error ? tmp03.stack || tmp03.message : String(tmp03);
+        this.logLines.push('侧栏加载失败: ' + tmp12);
+        if (this.logLines.length > 200) {
+          this.logLines = this.logLines.slice(-100);
+        }
+        
+        // 如果是首次加载失败且未超过重试次数，延迟重试
+        if (retryCount < 2 && (tmp12.includes('ServiceWorker') || tmp12.includes('invalid state'))) {
+          setTimeout(() => loadWebview(retryCount + 1), 5000);
+          return;
+        }
+        
+        tmp02.webview.html = this.renderFallbackHtml(tmp03);
+        vscode.window.showErrorMessage(
+          'Devin BYOK Bridge 控制面板加载失败：' +
+            (tmp03 instanceof Error ? tmp03.message : String(tmp03))
+        );
       }
-      tmp02.webview.html = this.renderFallbackHtml(tmp03);
-      vscode.window.showErrorMessage(
-        'Devin BYOK Bridge 控制面板加载失败：' +
-          (tmp03 instanceof Error ? tmp03.message : String(tmp03))
-      );
-    }
+    };
+    
+    // 延迟 100ms 后加载，给 Webview 初始化时间
+    setTimeout(() => loadWebview(), 100);
+    
     tmp02.webview.onDidReceiveMessage((arg0) => this.handleMessage(arg0));
     if (this.proxyManager.getStatus().running) {
       this.refresh();
@@ -1496,6 +1511,9 @@ class SidebarProvider {
         }
         if (typeof tmp02.userId === 'string') {
           fields.userId = tmp02.userId.trim();
+        }
+        if (typeof tmp02.balanceInterval === 'number') {
+          fields.balanceInterval = Math.max(0, Math.min(60, tmp02.balanceInterval));
         }
         profileStore_1.updateProfile(this.editingProfileId, fields, envConfig);
         // 同步方案名（如果 webview 提供了名字）

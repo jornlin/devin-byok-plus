@@ -47,6 +47,7 @@ function createDefaultProfile(envConfig = {}) {
     name: '方案 1',
     balanceToken: envConfig.BYOK1_BALANCE_TOKEN || '',
     userId: envConfig.BYOK1_USER_ID || '',
+    balanceInterval: 3, // 默认3分钟
     byok1: {
       host: envConfig.BYOK1_ANTHROPIC_API_HOST || '',
       key: envConfig.BYOK1_ANTHROPIC_API_KEY || '',
@@ -148,6 +149,10 @@ function normalizeProfile(profile) {
   }
   if (profile.balanceToken === undefined) profile.balanceToken = '';
   if (profile.userId === undefined) profile.userId = '';
+  if (profile.balanceInterval === undefined) profile.balanceInterval = 3;
+  if (typeof profile.balanceInterval !== 'number' || profile.balanceInterval < 0) {
+    profile.balanceInterval = 3;
+  }
   profile.byok1 = normalizeSlot(profile.byok1);
   profile.byok2 = normalizeSlot(profile.byok2);
   profile.byok3 = normalizeSlot(profile.byok3);
