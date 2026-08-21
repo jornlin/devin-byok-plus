@@ -132,24 +132,56 @@ class SidebarProvider {
       localResourceRoots: [this.context.extensionUri],
     };
     tmp02.webview.options = tmp1;
-    try {
-      tmp02.webview.html = this.getHtml();
-    } catch (tmp03) {
-      const tmp12 = tmp03 instanceof Error ? tmp03.stack || tmp03.message : String(tmp03);
-      this.logLines.push('侧栏加载失败: ' + tmp12);
-      if (this.logLines.length > 200) {
-        this.logLines = this.logLines.slice(-100);
+
+    // 首次启动时 Webview 宿主可能还没就绪，直接赋 html 会失败。
+    // 失败不区分原因一律重试：fallback 页是终态（用户只能重开侧栏），
+    // 拿它赌一个错误文案匹配不划算。
+    const loadWebview = (retryCount = 0) => {
+      // 重试是异步的，这期间侧栏可能已被关闭或被新的 webview 替换。
+      // 对已 dispose 的 webview 赋 html 会抛，且下面 catch 里的 fallback 赋值
+      // 会二次抛出、逃逸成未捕获异常，所以先确认自己仍是当前那个 view。
+      if (this.view !== tmp02) {
+        return;
       }
-      tmp02.webview.html = this.renderFallbackHtml(tmp03);
-      vscode.window.showErrorMessage(
-        'Devin BYOK Bridge 控制面板加载失败：' +
-          (tmp03 instanceof Error ? tmp03.message : String(tmp03))
-      );
-    }
+      try {
+        tmp02.webview.html = this.getHtml();
+      } catch (tmp03) {
+        const tmp12 = tmp03 instanceof Error ? tmp03.stack || tmp03.message : String(tmp03);
+        this.logLines.push('侧栏加载失败: ' + tmp12);
+        if (this.logLines.length > 200) {
+          this.logLines = this.logLines.slice(-100);
+        }
+        if (retryCount < 2) {
+          setTimeout(() => loadWebview(retryCount + 1), 300 * (retryCount + 1));
+          return;
+        }
+        try {
+          tmp02.webview.html = this.renderFallbackHtml(tmp03);
+        } catch (_) { /* 连 fallback 都写不进去说明 webview 已废弃，放弃 */ }
+        vscode.window.showErrorMessage(
+          'Devin BYOK Bridge 控制面板加载失败：' +
+            (tmp03 instanceof Error ? tmp03.message : String(tmp03))
+        );
+        return;
+      }
+      // 状态快照必须等 html 装好后再发：走重试路径时首次赋值是失败的，
+      // 此刻 webview 里没有脚本接收消息，而这些消息没有任何补发机制
+      // （日志推送带节流，代理安静运行时不会触发），侧栏会一直显示成未运行。
+      if (this.proxyManager.getStatus().running) {
+        this.refresh();
+      }
+    };
+
+    loadWebview();
+
     tmp02.webview.onDidReceiveMessage((arg0) => this.handleMessage(arg0));
-    if (this.proxyManager.getStatus().running) {
-      this.refresh();
-    }
+    // 侧栏关闭后置空，否则上面的身份校验识别不了「已关掉」这个场景，
+    // 重试会对着 dispose 掉的 webview 赋值，最后给用户弹一个他刚关掉的面板的报错。
+    tmp02.onDidDispose(() => {
+      if (this.view === tmp02) {
+        this.view = null;
+      }
+    });
   }
   async checkHttpHealth(tmp02, tmp1 = 5000) {
     const tmp2 = Date.now();
@@ -275,6 +307,27 @@ class SidebarProvider {
       profiles: list.profiles,
       activeId: list.activeId,
       editingId: this.editingProfileId,
+    });
+  }
+  /**
+   * 把某个方案的完整状态推给编辑器卡片。
+   * 余额那几个字段必须显式下发：状态刷新（refresh / postEditingConfig）只覆盖
+   * BYOK 配置，碰不到余额开关、凭据与间隔。漏发就会让编辑器停在上一个方案的值上，
+   * 用户随后点「应用到方案」会把旧方案的凭据连同旧方案名一起写进新方案。
+   */
+  postProfileEditor(profile, envConfig, extra = {}) {
+    if (!this.view || !profile) return;
+    this.view.webview.postMessage({
+      type: 'openProfileEditor',
+      profileId: profile.id,
+      profileName: profile.name,
+      isActive: profile.id === profileStore_1.listProfiles(envConfig).activeId,
+      config: this.profileScopedConfigForView(profile, envConfig),
+      balanceEnabled: profile.balanceEnabled === true,
+      balanceToken: profile.balanceToken || '',
+      userId: profile.userId || '',
+      balanceInterval: profileStore_1.sanitizeBalanceInterval(profile.balanceInterval),
+      ...extra,
     });
   }
   postEditingConfig() {
@@ -1500,6 +1553,11 @@ class SidebarProvider {
         if (typeof tmp02.userId === 'string') {
           fields.userId = tmp02.userId.trim();
         }
+        if (tmp02.balanceInterval !== undefined) {
+          // updateProfile 走 Object.assign 不过 normalizeProfile，写侧必须自己清洗，
+          // 否则 NaN / 超大值会直接落盘。与读侧共用同一个函数保证口径一致。
+          fields.balanceInterval = profileStore_1.sanitizeBalanceInterval(tmp02.balanceInterval);
+        }
         profileStore_1.updateProfile(this.editingProfileId, fields, envConfig);
         // 同步方案名（如果 webview 提供了名字）
         if (profileName) {
@@ -1548,20 +1606,7 @@ class SidebarProvider {
         this.postActionState('config', 'success', '已创建新方案：' + created.name);
         this.postProfileList();
         // 新建后自动打开编辑器
-        const scoped = this.profileScopedConfigForView(created, envConfig);
-        if (this.view) {
-          this.view.webview.postMessage({
-            type: 'openProfileEditor',
-            profileId: created.id,
-            profileName: created.name,
-            isActive: created.id === profileStore_1.listProfiles(envConfig).activeId,
-            config: scoped,
-            // 必须显式下发：否则表单会残留上一个方案的余额凭据
-            balanceEnabled: created.balanceEnabled === true,
-            balanceToken: created.balanceToken || '',
-            userId: created.userId || '',
-          });
-        }
+        this.postProfileEditor(created, envConfig);
         this.refresh();
         break;
       }
@@ -1574,20 +1619,7 @@ class SidebarProvider {
           break;
         }
         this.editingProfileId = pid;
-        const scoped = this.profileScopedConfigForView(profile, envConfig);
-        if (this.view) {
-          const activeId = profileStore_1.listProfiles(envConfig).activeId;
-          this.view.webview.postMessage({
-            type: 'openProfileEditor',
-            profileId: profile.id,
-            profileName: profile.name,
-            isActive: profile.id === activeId,
-            config: scoped,
-            balanceEnabled: profile.balanceEnabled === true,
-            balanceToken: profile.balanceToken || '',
-            userId: profile.userId || '',
-          });
-        }
+        this.postProfileEditor(profile, envConfig);
         this.postProfileList();
         break;
       }
@@ -1605,21 +1637,7 @@ class SidebarProvider {
           this.postActionState('config', 'error', '方案不存在');
           break;
         }
-        const scoped = this.profileScopedConfigForView(profile, envConfig);
-        if (this.view) {
-          const activeId = profileStore_1.listProfiles(envConfig).activeId;
-          this.view.webview.postMessage({
-            type: 'openProfileEditor',
-            profileId: profile.id,
-            profileName: profile.name,
-            isActive: profile.id === activeId,
-            config: scoped,
-            balanceEnabled: profile.balanceEnabled === true,
-            balanceToken: profile.balanceToken || '',
-            userId: profile.userId || '',
-            reset: true,
-          });
-        }
+        this.postProfileEditor(profile, envConfig, { reset: true });
         this.postActionState('config', 'success', '已重置到方案已保存的值');
         break;
       }
@@ -1640,9 +1658,16 @@ class SidebarProvider {
           break;
         }
         profileStore_1.activateProfile(pid, envConfig);
+        // 编辑器本来就开着才跟着切，否则点「启用」会凭空弹出一个编辑器卡片。
+        const editorWasOpen = this.editingProfileId !== null;
         this.editingProfileId = pid;
         await this.applyProfileToRuntime(profile, false);
         this.proxyManager.fetchApiBalance();
+        if (editorWasOpen) {
+          // 编辑器改指向新方案了，余额那几个控件必须重新水合——
+          // 下面的 refresh() 只刷 BYOK 字段，碰不到它们。
+          this.postProfileEditor(profile, envConfig);
+        }
         this.postProfileList();
         this.refresh();
         break;
@@ -1671,8 +1696,13 @@ class SidebarProvider {
         const pid = tmp02.profileId;
         const envConfig = this.proxyManager.readEnvConfig();
         const dup = profileStore_1.duplicateProfile(pid, envConfig);
+        const editorWasOpen = this.editingProfileId !== null;
         this.editingProfileId = dup.id;
         this.postActionState('config', 'success', '已复制为：' + dup.name);
+        if (editorWasOpen) {
+          // 同 activateProfile：editingProfileId 指向了副本，表单也得跟着换
+          this.postProfileEditor(dup, envConfig);
+        }
         this.postProfileList();
         break;
       }
@@ -1696,7 +1726,8 @@ class SidebarProvider {
         }
         const wasActive = pid === list.activeId;
         const result = profileStore_1.deleteProfile(pid, envConfig);
-        if (this.editingProfileId === pid) {
+        const editorFollowed = this.editingProfileId === pid;
+        if (editorFollowed) {
           this.editingProfileId = result.newActiveId;
         }
         if (wasActive) {
@@ -1707,6 +1738,13 @@ class SidebarProvider {
           this.postActionState('config', 'success', '已删除并切换到：' + newActive.name);
         } else {
           this.postActionState('config', 'success', '已删除方案');
+        }
+        if (editorFollowed) {
+          // 编辑器原本指着被删的方案，现已改指新激活方案，表单必须整体重灌
+          this.postProfileEditor(
+            profileStore_1.getProfileById(result.newActiveId, envConfig),
+            envConfig
+          );
         }
         this.postProfileList();
         this.refresh();

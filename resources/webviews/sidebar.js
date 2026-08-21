@@ -657,7 +657,14 @@
     body.classList.toggle("hidden", !(toggle && toggle.checked));
   }
 
-  function showProfileEditor(profileId, profileName, isActive, config, balanceToken, userId, balanceEnabled) {
+  // 读取「查询间隔」输入框。留空按默认 3 分钟处理而不是 0——Number("") 是 0，
+  // 直接发出去会被理解成「禁用自动刷新」，那不是清空输入框的人想要的。
+  function readBalanceInterval() {
+    const raw = (fn4("cfgBalanceInterval")?.value || "").trim();
+    return raw === "" ? 3 : Number(raw);
+  }
+
+  function showProfileEditor(profileId, profileName, isActive, config, balanceToken, userId, balanceEnabled, balanceInterval) {
     currentEditingProfile = { profileId, profileName, isActive };
     const card = fn4("profileEditorCard");
     const nameInput = fn4("cfgProfileName");
@@ -667,6 +674,7 @@
     fn13("cfgBalanceEnabled", balanceEnabled === true);
     fn13("cfgBalanceToken", balanceToken || "");
     fn13("cfgUserId", userId || "");
+    fn13("cfgBalanceInterval", balanceInterval === undefined || balanceInterval === null ? 3 : balanceInterval);
     syncBalanceFieldsUI();
     if (badge) {
       badge.textContent = isActive ? "使用中" : "未启用";
@@ -1107,6 +1115,7 @@
         balanceEnabled: fn4("cfgBalanceEnabled")?.checked === true,
         balanceToken: (fn4("cfgBalanceToken")?.value || "").trim(),
         userId: (fn4("cfgUserId")?.value || "").trim(),
+        balanceInterval: readBalanceInterval(),
         silent: false
       });
     } else if (tmp32 === "closeProfileEditor") {
@@ -1367,7 +1376,7 @@
     } else if (tmp12.type === "profileList") {
       renderProfileList(tmp12);
     } else if (tmp12.type === "openProfileEditor") {
-      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken, tmp12.userId, tmp12.balanceEnabled);
+      showProfileEditor(tmp12.profileId, tmp12.profileName, tmp12.isActive, tmp12.config, tmp12.balanceToken, tmp12.userId, tmp12.balanceEnabled, tmp12.balanceInterval);
     } else if (tmp12.type === "actionState" && tmp12.section) {
       fn7(tmp12.section, tmp12.state === "error" ? "error" : "success", tmp12.message || "完成");
     } else if (tmp12.type === "modelList") {

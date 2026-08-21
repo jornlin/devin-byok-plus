@@ -14,7 +14,7 @@ Claude / GPT / Gemini —— 4 个独立 BYOK 槽位、多方案切换、按厂�
 - **接管模型列表** — 把配置好的槽位放回 Devin 的模型下拉框，显示真实模型名
 - **按厂商适配思考强度** — Claude adaptive / GPT `reasoning.effort` / Gemini `thinking_level`
 - **协议自动识别** — 按模型名判断走 Anthropic / OpenAI / Gemini，也可手动指定
-- **余额显示** — 状态栏显示 NewAPI / One-API 余额（需配置访问令牌）
+- **余额显示** — 状态栏显示 NewAPI / One-API / sub2api 余额（默认关闭，需配置访问令牌，刷新间隔可调）
 - 导入 `~/.claude` / `~/.codex` 现有配置、Prompt Cache、Token 用量日志、请求重试
 
 ## 安装

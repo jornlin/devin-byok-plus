@@ -28,7 +28,7 @@
         <div class="sec">
             <div class="set-row" style="padding-top:0">
                 <div class="set-row-main">
-                    <span class="set-row-label" title="开启后在状态栏显示该方案的账户余额，每 2 分钟自动刷新，点击可手动刷新。关闭时完全不发起余额请求，状态栏也不显示。">显示 API 余额</span>
+                    <span class="set-row-label" title="开启后在状态栏显示该方案的账户余额，按下方间隔自动刷新，点击状态栏可立即刷新。关闭时完全不发起余额请求，状态栏也不显示。">显示 API 余额</span>
                     <span class="set-row-hint">NewAPI / One-API 类网关可用，关闭时不发起任何请求</span>
                 </div>
                 <div class="set-row-ctl">
@@ -43,6 +43,10 @@
                 <div class="fg" style="margin-bottom:0">
                     <label title="NewAPI/One-API 的用户数字 ID，作为 New-Api-User 请求头随访问令牌一起发送。多数 NewAPI 版本要求两者同时提供。">用户 ID <span class="hint">（配合访问令牌）</span></label>
                     <input type="text" id="cfgUserId" placeholder="例如 562" autocomplete="off">
+                </div>
+                <div class="fg" style="margin-bottom:0">
+                    <label title="自动刷新余额的间隔时间（分钟），最大 60。设置为 0 则不自动刷新，只在点击状态栏时查询。">查询间隔 <span class="hint">（分钟，0 = 仅手动）</span></label>
+                    <input type="number" id="cfgBalanceInterval" placeholder="3" min="0" max="60" autocomplete="off">
                 </div>
                 <div class="set-row-hint" style="margin-top:6px">NewAPI 通常要求「访问令牌 + 用户 ID」同时提供；两项留空时只尝试通用计费端点，多数网关不支持。余额取自 BYOK #1 的网关地址与 Key。</div>
             </div>

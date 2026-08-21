@@ -76,10 +76,17 @@ class ProxyManager {
     this.balanceStatusBar.command = "devin-byok-plus.refreshBalance";
     this.balanceStatusBar.text = "$(credit-card) 余额: --";
     this.balanceStatusBar.tooltip = "点击刷新 API 余额";
-    // 默认隐藏，仅当激活方案配置了余额查询信息时由 fetchApiBalance 显示
+    // 余额查询状态
+    this.balanceCache = null; // {balance, timestamp, key: '方案id::host', endpoint}
+    this.balanceRequestLog = {}; // {host+endpoint+变体: [近 1 分钟内的请求时间戳]}
+    this.successfulEndpoints = {}; // {方案id::host: endpoint} 记住上次成功的端点
+    this._balanceFetching = false; // 在飞锁，挡住定时器与手动刷新的重入
+    this._balancePending = false; // 被锁挡回的调用，由持锁方收尾时补跑
+    // 默认隐藏，仅当激活方案开启了余额显示时由 fetchApiBalance 显示
     this.balanceStatusBar.hide();
     tmp0.subscriptions.push(this.balanceStatusBar);
     this.balanceTimer = null;
+    this.balanceTimerMinutes = 0;
     this.startBalanceTimer();
     this.refreshExternalProxyStatus();
   }
@@ -1138,9 +1145,12 @@ class ProxyManager {
       requestCount: this.requestCount
     };
   }
-  async fetchApiBalance() {
+  async fetchApiBalance(forceRefresh = false) {
     // 整体包裹 try/catch：本方法在多个 fire-and-forget 场景被调用
     // （定时器、命令、方案切换、构造），任何同步抛错都不得逃逸为 unhandled rejection。
+    // acquired 标记「本次调用是否真的拿到了在飞锁」，避免被挡回的并发调用
+    // 在 finally 里误把别人的锁释放掉。
+    let acquired = false;
     try {
       const https = require('https');
       const http = require('http');
@@ -1156,51 +1166,126 @@ class ProxyManager {
       }
       const balanceToken = this._sanitizeHeaderValue(profile?.balanceToken);
       const userId = this._sanitizeHeaderValue(profile?.userId);
-      this.ensureBalanceTimer();
-      this.balanceStatusBar.show();
-      this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
+      const intervalMinutes = profileStore.sanitizeBalanceInterval(profile?.balanceInterval);
+      this.ensureBalanceTimer(intervalMinutes);
       const host = ((profile?.byok1?.host) || envConfig.BYOK1_OPENAI_API_HOST || envConfig.BYOK1_ANTHROPIC_API_HOST || envConfig.OPENAI_API_HOST || envConfig.ANTHROPIC_API_HOST || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
       const apiKey = (profile?.byok1?.key) || envConfig.BYOK1_ANTHROPIC_API_KEY || envConfig.OPENAI_API_KEY || envConfig.ANTHROPIC_API_KEY || '';
-      if (!host || !apiKey) {
+      this.balanceStatusBar.show();
+      // 访问令牌单独就能查 NewAPI /api/user/self，故 key 缺失不再一票否决。
+      // 开关是用户显式打开的，这里宁可显示「未配置」也不静默隐藏，否则用户
+      // 开了开关却什么都看不到，无从判断是没配还是查失败。
+      if (!host || (!balanceToken && !apiKey)) {
         this.balanceStatusBar.text = "$(credit-card) 余额: 未配置";
-        this.balanceStatusBar.tooltip = "请先配置 API Host 和 Key\n点击刷新";
+        this.balanceStatusBar.tooltip = "请先配置 BYOK #1 的网关地址，以及访问令牌或 API Key\n点击刷新";
         return;
       }
+      // 缓存按「方案 + 网关」隔离：多方案常复用同一 host 但凭据不同，
+      // 只按 host 命中会把别的方案的余额显示成当前方案的。
+      const cacheKey = `${profile?.id || 'default'}::${host}`;
+      // 间隔 0 的语义是「不自动轮询」，不是「不要缓存」。若让它直通，
+      // 编辑器里的防抖自动保存每次都会触发一整轮探测，反而比设了间隔的方案
+      // 发更多请求——与用户选「仅手动」的意图正好相反。故给个地板值。
+      const ttl = intervalMinutes > 0 ? intervalMinutes * 60 * 1000 : 30 * 1000;
+      const cached = this.balanceCache;
+      if (!forceRefresh && cached && cached.key === cacheKey && Date.now() - cached.timestamp < ttl) {
+        this._renderBalance(cached.balance, host, cached.endpoint, profile?.name, cached.timestamp, true);
+        return;
+      }
+      // 定时器、方案切换、手动刷新可能撞车。tryList 最长 7 个端点，
+      // 重入会成倍放大探测请求，故同一时刻只允许一轮在飞。
+      // 被挡回的调用记 pending，由持锁方在收尾时补跑——否则「切换方案」这类
+      // 调用会被静默吞掉，状态栏一直停在上一个方案的数据上。
+      if (this._balanceFetching) {
+        this._balancePending = true;
+        return;
+      }
+      this._balanceFetching = true;
+      acquired = true;
+      this.balanceStatusBar.text = "$(loading~spin) 余额: 刷新中";
       const useHttp = host.startsWith('localhost') || host.startsWith('127.');
       const hostname = host.split(':')[0];
       const port = host.includes(':') ? parseInt(host.split(':')[1]) : (useHttp ? 80 : 443);
       const mod = useHttp ? http : https;
 
-      // 按优先级排列端点：userId+balanceToken组合 > userId+apiKey > 通用端点
+      // 端点候选：每项是 [路径, 请求头, 变体标识]。变体标识描述凭据形态，
+      // 供限流按「host + 路径 + 变体」记账——同一路径的多个凭据变体是必要的
+      // 降级探测，只按路径记账会让单轮内的 3 个 /api/user/self 变体自吃配额。
+      const successfulEp = this.successfulEndpoints[cacheKey];
+      // 上次成功的路径排到最前，省掉重复的无效探测
+      const preferKnown = (candidates) => {
+        if (!successfulEp || !candidates.some(c => c[0] === successfulEp)) {
+          return candidates;
+        }
+        return [
+          ...candidates.filter(c => c[0] === successfulEp),
+          ...candidates.filter(c => c[0] !== successfulEp),
+        ];
+      };
+
       const tryList = [];
       if (balanceToken && userId) {
-        // 正确格式：Bearer balanceToken + New-Api-User: userId
-        tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
-        tryList.push(['/api/user/self', { 'Authorization': balanceToken,             'New-Api-User': userId }]);
-        tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }]);
-      } else if (userId) {
-        tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
-        tryList.push(['/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }]);
+        tryList.push(...preferKnown([
+          ['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }, 'tok-bearer+uid'],
+          ['/api/user/self', { 'Authorization': balanceToken, 'New-Api-User': userId }, 'tok-raw+uid'],
+          ['/api/user/info', { 'Authorization': 'Bearer ' + balanceToken, 'New-Api-User': userId }, 'tok-bearer+uid'],
+        ]));
+      } else if (userId && apiKey) {
+        tryList.push(...preferKnown([
+          ['/api/user/self', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }, 'key-bearer+uid'],
+          ['/api/user/info', { 'Authorization': 'Bearer ' + apiKey, 'New-Api-User': userId }, 'key-bearer+uid'],
+        ]));
       } else if (balanceToken) {
-        tryList.push(['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }]);
-        tryList.push(['/api/user/self', { 'Authorization': balanceToken }]);
+        tryList.push(...preferKnown([
+          ['/api/v1/usage', { 'Authorization': 'Bearer ' + balanceToken }, 'tok-bearer'],
+          ['/api/user/self', { 'Authorization': 'Bearer ' + balanceToken }, 'tok-bearer'],
+          ['/api/user/self', { 'Authorization': balanceToken }, 'tok-raw'],
+        ]));
       }
-      // 原来工作的3个通用端点（保持不变）
-      tryList.push(['/v1/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }]);
-      tryList.push(['/v1/user/balance',                    { 'Authorization': 'Bearer ' + apiKey }]);
-      tryList.push(['/dashboard/billing/credit_grants',    { 'Authorization': 'Bearer ' + apiKey }]);
+      // 通用计费端点只在真有 apiKey 时才试。没有 key 还 push 进来，发出去的是
+      // `Authorization: Bearer `（空令牌），稳定 401：白给网关刷鉴权失败日志，
+      // 还占掉限流配额、拖长单轮时间。
+      if (apiKey) {
+        tryList.push(...preferKnown([
+          ['/api/user/self', { 'Authorization': 'Bearer ' + apiKey }, 'key-bearer'],
+          ['/v1/user/balance', { 'Authorization': 'Bearer ' + apiKey }, 'key-bearer'],
+          ['/v1/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }, 'key-bearer'],
+          ['/dashboard/billing/credit_grants', { 'Authorization': 'Bearer ' + apiKey }, 'key-bearer'],
+        ]));
+      }
 
       const errors = [];
-      for (const [ep, extraHeaders] of tryList) {
+      for (const [ep, extraHeaders, variant] of tryList) {
+        // 同一「host + 路径 + 凭据变体」1 分钟内最多 3 次。过滤结果必须写回，
+        // 否则数组只增不减，长期运行会把历史时间戳无限堆在内存里。
+        const rateLimitKey = `${host}${ep}::${variant}`;
+        const stamps = (this.balanceRequestLog[rateLimitKey] || []).filter(t => Date.now() - t < 60000);
+        this.balanceRequestLog[rateLimitKey] = stamps;
+        if (stamps.length >= 3) {
+          errors.push(ep + ':频率限制');
+          continue;
+        }
+        stamps.push(Date.now());
+
         try {
           const result = await new Promise((resolve, reject) => {
             const req = mod.request({
               hostname, port, path: ep, method: 'GET',
-              rejectUnauthorized: false, timeout: 8000,
+              rejectUnauthorized: !useHttp,
+              timeout: 8000,
               headers: { ...extraHeaders, 'Content-Type': 'application/json' },
             }, (res) => {
               let body = '';
-              res.on('data', c => body += c);
+              let size = 0;
+              const MAX_SIZE = 1024 * 1024;
+              res.on('data', c => {
+                size += c.length;
+                if (size > MAX_SIZE) {
+                  req.destroy();
+                  reject(new Error('响应过大'));
+                  return;
+                }
+                body += c;
+              });
               res.on('end', () => {
                 if (res.statusCode === 200) resolve(body);
                 else reject(new Error('HTTP ' + res.statusCode));
@@ -1212,21 +1297,35 @@ class ProxyManager {
           });
           const json = JSON.parse(result);
           const balance = this._parseBalance(json);
-          if (balance !== null) {
-            const fmt = balance.toFixed(2);
-            const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-            this.balanceStatusBar.text = `$(credit-card) 余额: ${fmt}`;
-            this.balanceStatusBar.tooltip = `API 余额: ${fmt}\n来自: ${host}${ep}\n方案: ${profile?.name || '默认'}\n更新时间: ${now}\n点击刷新`;
+          // 必须用 isFinite 而不是 !== null：_parseBalance 里的 parseFloat 对
+          // "unlimited" 这类值会得到 NaN，而 NaN !== null 成立，会让状态栏显示
+          // 「余额: NaN」，还把 NaN 写进缓存、把坏端点记成成功端点，整个 TTL 内反复重放。
+          if (Number.isFinite(balance)) {
+            // 成功：缓存结果并记住该方案在该网关可用的端点，下轮优先试它。
+            const stamp = Date.now();
+            this.balanceCache = { balance, timestamp: stamp, key: cacheKey, endpoint: ep };
+            this.successfulEndpoints[cacheKey] = ep;
+            // 整轮探测可能耗时数十秒，期间用户可能已经切走。此时这份结果属于旧方案，
+            // 写进状态栏就是张冠李戴——缓存照记（key 带方案 id，切回来还能用），但不渲染。
+            if (profileStore.getActiveProfile(this.readEnvConfig())?.id === profile?.id) {
+              this._renderBalance(balance, host, ep, profile?.name, stamp, false);
+            }
             return;
           }
-          errors.push(ep + ':无余额字段');
+          errors.push(ep + (balance === null ? ':无余额字段' : ':余额值非数字'));
         } catch (e) {
-          errors.push(ep + ':' + e.message.slice(0, 30));
+          // 逐个端点降级即可，不做同端点重试：tryList 本身就是降级链，
+          // 而循环内 sleep 会把单轮查询拖到分钟级，撞上下一次定时刷新。
+          errors.push(ep + ':' + String(e?.message || e).slice(0, 30));
         }
       }
-      const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      this.balanceStatusBar.text = "$(credit-card) 余额: 不支持";
-      this.balanceStatusBar.tooltip = `无法获取余额 (${host})\n${errors.join('\n')}\n${now}\n点击刷新`;
+
+      // 同上：整轮打完可能已经不是当初那个方案了，别把旧方案的失败写到新方案头上
+      if (profileStore.getActiveProfile(this.readEnvConfig())?.id === profile?.id) {
+        const updateTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        this.balanceStatusBar.text = "$(credit-card) 余额: 不支持";
+        this.balanceStatusBar.tooltip = `无法获取余额 (${host})\n${errors.join('\n')}\n${updateTime}\n点击刷新`;
+      }
     } catch (err) {
       // 兜底：任何未预期的同步/异步错误都不得逃逸为 unhandled rejection
       console.error('[Devin BYOK Plus] fetchApiBalance 异常:', err?.message || err);
@@ -1234,7 +1333,28 @@ class ProxyManager {
         this.balanceStatusBar.text = "$(credit-card) 余额: 查询异常";
         this.balanceStatusBar.tooltip = "余额查询发生异常\n点击重试";
       } catch (_) { /* 状态栏不可用时静默忽略 */ }
+    } finally {
+      if (acquired) {
+        this._balanceFetching = false;
+        // 补跑被挡回的调用（多半是查询期间切了方案或用户手点了刷新）。
+        // 此时锁已释放，补跑这次能正常拿到锁；它自己再被挡回的情况不存在。
+        if (this._balancePending) {
+          this._balancePending = false;
+          Promise.resolve().then(() => this.fetchApiBalance());
+        }
+      }
     }
+  }
+  /**
+   * 把余额写进状态栏。缓存命中与真实查询成功走同一套渲染，
+   * 差别只在 tooltip 标注数据来自缓存还是刚拉的。
+   */
+  _renderBalance(balance, host, endpoint, profileName, timestamp, fromCache) {
+    const fmt = balance.toFixed(2);
+    const updateTime = new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    this.balanceStatusBar.show();
+    this.balanceStatusBar.text = `$(credit-card) 余额: ${fmt}`;
+    this.balanceStatusBar.tooltip = `API 余额: ${fmt}\n来自: ${host}${endpoint}\n方案: ${profileName || '默认'}\n更新时间: ${updateTime}${fromCache ? '\n(缓存)' : ''}\n点击刷新`;
   }
   /**
    * 清洗将要写入 HTTP 请求头的用户输入值。
@@ -1256,12 +1376,32 @@ class ProxyManager {
   }
   _parseBalance(json) {
     if (!json || typeof json !== 'object') return null;
+
+    // sub2api /api/v1/usage: {code:0, data:{items:[{user:{balance:181.56}}]}}
+    if (json.code === 0 && Array.isArray(json.data?.items) && json.data.items.length > 0) {
+      const firstItem = json.data.items[0];
+      if (typeof firstItem?.user?.balance === 'number') {
+        return firstItem.user.balance;
+      }
+    }
+    // sub2api 变体: {"data":{"user":{"balance":181.56}}}
+    if (typeof json.data?.user?.balance === 'number') {
+      return json.data.user.balance;
+    }
+    // sub2api 变体: {"user":{"balance":189.32}}
+    if (typeof json.user?.balance === 'number') {
+      return json.user.balance;
+    }
+
     // NewAPI /api/user/self: {"success":true,"data":{"quota":5000000,...}}
+    // quota 必须排在 balance 之前：NewAPI 的 quota 才是权威额度（需 /500000 折算成额度单位），
+    // 同一份响应里的 balance 含义不同，调换顺序会让既有 NewAPI 用户看到的数字变掉。
     if (json.success === true && json.data) {
       const d = json.data;
       if (typeof d.quota === 'number' && d.quota > 0) return d.quota / 500000;
       if (d.total_available != null) return parseFloat(d.total_available);
       if (d.balance != null) return parseFloat(d.balance);
+      if (d.credit != null) return parseFloat(d.credit);
     }
     // 通用字段（原始工作逻辑）
     if (json.total_available != null) return parseFloat(json.total_available);
@@ -1280,17 +1420,28 @@ class ProxyManager {
   startBalanceTimer() {
     this.fetchApiBalance();
   }
-  ensureBalanceTimer() {
-    if (this.balanceTimer) {
+  /**
+   * 轮询间隔由方案的 balanceInterval（分钟）决定：0 表示只手动刷新，不装定时器。
+   * 间隔被改过时要重建，否则用户把 3 分钟调成 10 分钟后仍按旧节奏轮询。
+   */
+  ensureBalanceTimer(intervalMinutes) {
+    if (!(intervalMinutes > 0)) {
+      this.stopBalanceTimer();
       return;
     }
-    this.balanceTimer = setInterval(() => this.fetchApiBalance(), 2 * 60 * 1000);
+    if (this.balanceTimer && this.balanceTimerMinutes === intervalMinutes) {
+      return;
+    }
+    this.stopBalanceTimer();
+    this.balanceTimerMinutes = intervalMinutes;
+    this.balanceTimer = setInterval(() => this.fetchApiBalance(), intervalMinutes * 60 * 1000);
   }
   stopBalanceTimer() {
     if (this.balanceTimer) {
       clearInterval(this.balanceTimer);
       this.balanceTimer = null;
     }
+    this.balanceTimerMinutes = 0;
   }
   dispose() {
     this.stopBalanceTimer();

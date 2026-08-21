@@ -41,6 +41,31 @@ function sanitizeModelListMode(value) {
   return MODEL_LIST_MODE_VALUES.includes(normalized) ? normalized : 'replace';
 }
 
+const DEFAULT_BALANCE_INTERVAL = 3;
+const MAX_BALANCE_INTERVAL = 60;
+
+/**
+ * 余额自动刷新间隔（分钟）清洗。0 表示只手动刷新，不装轮询定时器。
+ * 必须卡死上界：该值最终乘 60000 送进 setInterval，超过 int32 会被 Node
+ * 折算成 1ms，反而变成疯狂轮询。
+ * 类型也要先卡：Number(null) / Number('') / Number(false) 全是 0，直接转会把
+ * 「字段缺失」误判成用户显式选了 0（禁用刷新），只有真数字或数字串才算数。
+ */
+function sanitizeBalanceInterval(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return DEFAULT_BALANCE_INTERVAL;
+  }
+  const raw = typeof value === 'string' ? value.trim() : value;
+  if (raw === '') {
+    return DEFAULT_BALANCE_INTERVAL;
+  }
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num < 0) {
+    return DEFAULT_BALANCE_INTERVAL;
+  }
+  return Math.min(Math.round(num), MAX_BALANCE_INTERVAL);
+}
+
 function createDefaultProfile(envConfig = {}) {
   const balanceToken = envConfig.BYOK1_BALANCE_TOKEN || '';
   const userId = envConfig.BYOK1_USER_ID || '';
@@ -51,6 +76,7 @@ function createDefaultProfile(envConfig = {}) {
     balanceEnabled: !!(balanceToken || userId),
     balanceToken,
     userId,
+    balanceInterval: DEFAULT_BALANCE_INTERVAL,
     byok1: {
       host: envConfig.BYOK1_ANTHROPIC_API_HOST || '',
       key: envConfig.BYOK1_ANTHROPIC_API_KEY || '',
@@ -161,6 +187,7 @@ function normalizeProfile(profile) {
   } else {
     profile.balanceEnabled = profile.balanceEnabled === true;
   }
+  profile.balanceInterval = sanitizeBalanceInterval(profile.balanceInterval);
   profile.byok1 = normalizeSlot(profile.byok1);
   profile.byok2 = normalizeSlot(profile.byok2);
   profile.byok3 = normalizeSlot(profile.byok3);
@@ -454,6 +481,7 @@ module.exports = {
   createDefaultProfile,
   sanitizeProtocol,
   sanitizeModelListMode,
+  sanitizeBalanceInterval,
   detectModelProtocol,
   resolveEffectiveProtocol,
 };
