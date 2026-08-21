@@ -79,6 +79,84 @@ function updatePackageJson(newVersion) {
   return oldVersion;
 }
 
+function compareVersions(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
+}
+
+/**
+ * 取 CHANGELOG.md 里最靠上的已发布版本条目。
+ * 正则只认 x.y.z，[Unreleased] 这类条目会被自动跳过。
+ */
+function readChangelogTop() {
+  const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+  if (!fs.existsSync(changelogPath)) return null;
+  const matched = fs
+    .readFileSync(changelogPath, 'utf-8')
+    .match(/^## \[(\d+\.\d+\.\d+)\](?:\s*-\s*(\S+))?/m);
+  return matched ? { version: matched[1], date: matched[2] || '' } : null;
+}
+
+/**
+ * 发布前一致性校验。
+ *
+ * release.config.json 是版本号的唯一事实来源，package.json 只是它的下游产物
+ * （updatePackageJson 会无条件覆写）。所以当有人直接改了 package.json 却忘了同步
+ * 这里时，跑一次发布就会把版本号悄悄退回去，打出的包会被 IDE 当成旧版本，
+ * 既不提示更新也可能拒绝安装。这道检查就是拦这个的。
+ */
+function checkConsistency(config, force) {
+  const problems = [];
+  const warnings = [];
+
+  const packagePath = path.join(__dirname, '..', 'package.json');
+  const pkgVersion = JSON.parse(fs.readFileSync(packagePath, 'utf-8')).version;
+
+  if (compareVersions(config.version, pkgVersion) < 0) {
+    problems.push(
+      `版本号会倒退：release.config.json 是 ${config.version}，package.json 已经是 ${pkgVersion}\n` +
+      `    继续执行会把 package.json 覆写成旧版本，打出的包 IDE 会当成降级。\n` +
+      `    通常是改了 package.json 却漏了 release.config.json。`
+    );
+  }
+
+  const changelog = readChangelogTop();
+  if (!changelog) {
+    warnings.push('CHANGELOG.md 里没有形如「## [x.y.z]」的条目，跳过比对');
+  } else if (changelog.version !== config.version) {
+    problems.push(
+      `CHANGELOG 对不上：CHANGELOG.md 顶部是 ${changelog.version}，release.config.json 是 ${config.version}\n` +
+      `    请先把本次变更写进 CHANGELOG.md 再发布。`
+    );
+  } else if (config.releaseDate && changelog.date && changelog.date !== config.releaseDate) {
+    warnings.push(
+      `发布日期不一致：CHANGELOG.md 是 ${changelog.date}，release.config.json 是 ${config.releaseDate}`
+    );
+  }
+
+  warnings.forEach((w) => log(`⚠ ${w}`, colors.yellow));
+
+  if (problems.length === 0) {
+    log('✓ 发布前检查通过：版本号与 CHANGELOG 一致', colors.green);
+    return true;
+  }
+
+  log('\n✗ 发布前检查未通过：', colors.red);
+  problems.forEach((p) => log(`  • ${p}`, colors.red));
+
+  if (force) {
+    log('\n⚠ 已指定 --force，忽略以上问题继续发布', colors.yellow);
+    return true;
+  }
+
+  log('\n修正后重新运行；确需跳过检查时加 --force\n', colors.yellow);
+  return false;
+}
+
 function runPackage() {
   log('\n开始打包...', colors.cyan);
   try {
@@ -93,9 +171,14 @@ function runPackage() {
 function main() {
   log('\n🚀 版本发布自动化脚本\n', colors.bright + colors.cyan);
 
+  const force = process.argv.includes('--force');
   const config = readConfig();
 
   if (!validateConfig(config)) {
+    process.exit(1);
+  }
+
+  if (!checkConsistency(config, force)) {
     process.exit(1);
   }
 
@@ -119,7 +202,6 @@ function main() {
 
   log('\n✅ 版本发布完成！', colors.green);
   log('\n下一步:', colors.cyan);
-  log('  0. 手动更新 CHANGELOG.md（将 release.config.json 中的变更内容添加到对应版本）');
   if (!autoPackage) {
     log('  1. 运行打包: npm run package');
   }
